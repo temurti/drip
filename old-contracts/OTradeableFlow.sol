@@ -16,7 +16,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
-  // using TradeableFlowStorage for TradeableFlowStorage.Link;
+  using TradeableFlowStorage for TradeableFlowStorage.Link;
 
   event NewAffiliateLink(uint tokenId, address owner);      // Emitted when a new affiliate link is created
 
@@ -33,8 +33,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     IConstantFlowAgreementV1 cfa,
     ISuperToken acceptedToken,
     address _ERC20Restrict,
-    bool _tokenRestriction,
-    int96 _affiliatePortion
+    bool _tokenRestriction
   )
     public ERC721 ( _name, _symbol )
     RedirectAll (
@@ -47,25 +46,27 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     ERC20Restrict = _ERC20Restrict;
     tokenRestriction = _tokenRestriction;
     owner = _owner;
-    _ap.affiliatePortion = _affiliatePortion;
   }
 
   modifier hasEnoughERC20Restrict() {
+    uint256 bal = IERC20(ERC20Restrict).balanceOf(msg.sender);
     if (tokenRestriction) {
-      require(IERC20(ERC20Restrict).balanceOf(msg.sender) >= ERC20RestrictBalanceRequirement, "!bal"); // You do not own enough of the designated ERC20 token to mint an affiliate NFT
+      require(bal >= ERC20RestrictBalanceRequirement, "!ERC20RestrictBalanceRequirement"); // You do not own enough of the designated ERC20 token to mint an affiliate NFT
     }
     _;
   }
 
   modifier isOwner() {
-    require(msg.sender == owner,"!own");
+    require(msg.sender == owner,"!owner");
     _;
   }
 
   // @dev Potential affiliate will call this function if they want an NFT for themself
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
-    require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer
+    // TODO: add in functionality that limits the amount of NFTs an affiliate can have to one
+    require(msg.sender != _ap.owner, "!owner"); // Shouldn't be minting affiliate NFTs to contract deployer
+    require(balanceOf(msg.sender) == 0); // You can only mint an affiliate NFT is you don't own any
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -73,18 +74,25 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     _mint(msg.sender,tokenId);
     _setTokenURI(tokenId,tokenURI); 
 
-    // Set msg.sender as affiliate for the token
-    _ap.tokenToAffiliate[tokenId] = msg.sender; 
-
-    // Set referral code to corresponding token
-    _ap.referralcodeToToken[tokenURI] = tokenId;
-
-    // Initialize affiliate in affiliateToOutflow
-    _ap.affiliateToOutflow[msg.sender] = 0;
+    _ap.links[tokenId] = TradeableFlowStorage.Link(0,msg.sender); // inflow rate is initially zero when NFT is first minted
 
   }
 
-  
+  // @notice The tokenID is to be used as the affiliate code
+  // @param tokenId
+  function getAfflilateLink(uint tokenId) external returns (TradeableFlowStorage.Link memory link) {
+    return _ap.links[tokenId];
+  }
+
+
+  // @dev Register a referral, associating the address of the subscriber with a tokenId
+  // @param refered The address of the referred subscriber
+  // @param tokenId The token to associate this referral tool
+  function registerReferral(address referred, uint tokenId) external {
+    require(_ap.referrals[referred] == 0, "ref");
+    _ap.referrals[referred] = tokenId;
+  }
+
 
   function _beforeTokenTransfer(
     address from,
@@ -109,11 +117,12 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       return super.tokenURI(tokenId);
   }
 
-  // @notice We are not letting the program owner change the ERC20Restrict (just saving space)
-  function changeSettings(
+  function setERC20RestrictDeets(
+    address newERC20Restrict,
     uint256 newERC20RestrictBalanceRequirement,
     bool newtokenRestriction
   ) public isOwner {
+    ERC20Restrict = newERC20Restrict;
     ERC20RestrictBalanceRequirement = newERC20RestrictBalanceRequirement;
     tokenRestriction = newtokenRestriction;
   }

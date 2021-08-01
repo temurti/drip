@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-truffle5");
+require('hardhat-contract-sizer');
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -18,7 +19,7 @@ task("accounts", "Prints the list of accounts", async () => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.7.6",
+  solidity: "0.8.0",
   mocha: {
     timeout: 100000
   },
@@ -30,10 +31,10 @@ module.exports = {
     //   gas: 2000000,
     //   gasPrice: 10000000000
     // },
-    rinkeby: {
-      url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
-      accounts: [process.env.PRIVATE_KEY],
-    },
+    // rinkeby: {
+    //   url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
+    //   accounts: [process.env.PRIVATE_KEY],
+    // },
     // hardhat: {
     //     forking: {
     //       url: "https://empty-rough-forest.matic.quiknode.pro/accde69e45a6f86670db4c9269b90ac5d70bcaf7/",
