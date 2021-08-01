@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -138,27 +138,20 @@ contract RedirectAll is SuperAppBase {
     function _updateOutflow(bytes calldata ctx) internal returns (bytes memory newCtx) {
         newCtx = ctx;
 
-        // Get associated tokenId in subscriber => subscribers.tokenId mapping
+        // Get subscriber from msgSender
         address subscriber = _ap.host.decodeCtx(ctx).msgSender;
-        uint256 tokenId = _ap.subscribers[subscriber].tokenId;
 
-        // Get [affiliate] address associated with tokenId
-        address affiliate = _ap.tokenToAffiliate[tokenId];
+        // Get associated tokenId in subscriber => subscribers.tokenId mapping amd then get [affiliate] address associated with tokenId
+        address affiliate = _ap.tokenToAffiliate[ _ap.subscribers[subscriber].tokenId ];
         
-        // Get old flowRate from subscriber in subscriber => SubscriberProfile.inflowRate mapping
-        int96 oldFlowFromSubscriber = _ap.subscribers[subscriber].inflowRate;
-
         // Get new flowRate from subscriber (ctx.msgSender) to this (subscriber inflow)
         (,int96 newFlowFromSubscriber,,) = _ap.cfa.getFlow(_ap.acceptedToken, subscriber, address(this));
-
-        // Get old flowRate to [affiliate] in affiliate => outflow mapping
-        int96 currentFlowToAffiliate = _ap.affiliateToOutflow[affiliate];
 
         // Get current flowRate from this to owner (revenue) from lastFlowRateToOwner in storage
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), _ap.owner);
 
-        // Get the [difference] between new flowRate from subscriber and old flowRate from subscriber
-        int96 changeInFlowSubscriber = newFlowFromSubscriber - oldFlowFromSubscriber;
+        // Get the [difference] between new flowRate from subscriber and old flowRate from subscriber (Get old flowRate from subscriber in subscriber => SubscriberProfile.inflowRate mapping)
+        int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate;
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
         int96 newFlowToOwner;        
@@ -166,9 +159,9 @@ contract RedirectAll is SuperAppBase {
         // if the affiliate address is not empty
         if (affiliate != address(0)) {
 
-            // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion
+            // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion added to current flow rate
             newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
-            int96 newFlowToAffiliate = currentFlowToAffiliate + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
+            int96 newFlowToAffiliate = _ap.affiliateToOutflow[affiliate] + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
 
             // increase/decrease the old flowRate to affiliate by [difference] amount in proportion to _ap.affiliatePortion - delete if zero
             if (newFlowToAffiliate == 0) {
@@ -229,6 +222,8 @@ contract RedirectAll is SuperAppBase {
         }
 
     }
+
+    // TODO: add function that returns the affiliate associated with an address. This way affiliate program can call it and if it's empty, not offer discount
 
     /**************************************************************************
      * SuperApp callbacks

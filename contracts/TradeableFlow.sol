@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -16,14 +16,15 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
-  // using TradeableFlowStorage for TradeableFlowStorage.Link;
 
   event NewAffiliateLink(uint tokenId, address owner);      // Emitted when a new affiliate link is created
 
-  address public owner;
-  address public ERC20Restrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 public ERC20RestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT
-  bool public tokenRestriction;                       // Whether or not minting TradeableFlow NFT is to be restricted based on user's balance of 
+  address owner;
+  address ERC20Restrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
+  uint256 ERC20RestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT
+
+  // @notice Got rid of tokenRestriction as the owner can just set ERC20RestrictBalanceRequirement to zero
+  // bool tokenRestriction;                       // Whether or not minting TradeableFlow NFT is to be restricted based on user's balance of 
 
   constructor (
     address _owner,
@@ -33,7 +34,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     IConstantFlowAgreementV1 cfa,
     ISuperToken acceptedToken,
     address _ERC20Restrict,
-    bool _tokenRestriction,
     int96 _affiliatePortion
   )
     public ERC721 ( _name, _symbol )
@@ -45,15 +45,12 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
      )
   { 
     ERC20Restrict = _ERC20Restrict;
-    tokenRestriction = _tokenRestriction;
     owner = _owner;
     _ap.affiliatePortion = _affiliatePortion;
   }
 
   modifier hasEnoughERC20Restrict() {
-    if (tokenRestriction) {
-      require(IERC20(ERC20Restrict).balanceOf(msg.sender) >= ERC20RestrictBalanceRequirement, "!bal"); // You do not own enough of the designated ERC20 token to mint an affiliate NFT
-    }
+    require(IERC20(ERC20Restrict).balanceOf(msg.sender) >= ERC20RestrictBalanceRequirement, "!bal"); // You do not own enough of the designated ERC20 token to mint an affiliate NFT
     _;
   }
 
@@ -65,7 +62,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   // @dev Potential affiliate will call this function if they want an NFT for themself
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
-    require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer
+    // require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer = commented to save space
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -83,7 +80,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     _ap.affiliateToOutflow[msg.sender] = 0;
 
   }
-
   
 
   function _beforeTokenTransfer(
@@ -110,12 +106,11 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   // @notice We are not letting the program owner change the ERC20Restrict (just saving space)
+  // Don't need newtokenRestriction, you can just set ERC20RestrictBalanceRequirement to zero
   function changeSettings(
-    uint256 newERC20RestrictBalanceRequirement,
-    bool newtokenRestriction
+    uint256 newERC20RestrictBalanceRequirement
   ) public isOwner {
     ERC20RestrictBalanceRequirement = newERC20RestrictBalanceRequirement;
-    tokenRestriction = newtokenRestriction;
   }
 
   // function getERC20RestrictBalanceRequirement() external view returns (uint256) {
