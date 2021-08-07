@@ -16,7 +16,6 @@ library TradeableFlowStorage  {
    // Subscriber's details
   struct SubscriberProfile {                           
     int96 inflowRate;   // how much subscriber is streaming into the app
-    // address affiliate;  // the affiliate who referred the subscriber
     uint256 tokenId;    // the tokenId representing the affiliate from which the subscriber was referred
   }
 
@@ -29,7 +28,6 @@ library TradeableFlowStorage  {
     mapping(string => uint256) referralcodeToToken;      // Maps referral code to tokenIds
     mapping(address => int96) affiliateToOutflow;        // Maps affiliate address to their outflow rate
     mapping(address => SubscriberProfile) subscribers;   // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
-    // int96 lastFlowRateToOwner;                           // The last flow rate to owner for this applicatoin
     int96 affiliatePortion;                            // Portion of referred subscriber revenue that corresponding affiliates receive ( affiliatePortion / 10000 ) should equal desired portion. If this is greater than 10000, contract will NOT work
   }
 

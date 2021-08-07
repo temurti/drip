@@ -19,9 +19,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   event NewAffiliateLink(uint tokenId, address owner);      // Emitted when a new affiliate link is created
 
-  address owner;
-  address ERC20Restrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 ERC20RestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT
+  address public owner;
+  address public ERC20Restrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
+  uint256 public ERC20RestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT
 
   // @notice Got rid of tokenRestriction as the owner can just set ERC20RestrictBalanceRequirement to zero
   // bool tokenRestriction;                       // Whether or not minting TradeableFlow NFT is to be restricted based on user's balance of 
@@ -59,10 +59,14 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     _;
   }
 
+  function getAffiliate(address subscriber) public view returns (address) {
+        return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
+  }
+
   // @dev Potential affiliate will call this function if they want an NFT for themself
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
-    // require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer = commented to save space
+    require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -105,11 +109,12 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       return super.tokenURI(tokenId);
   }
 
-  // @notice We are not letting the program owner change the ERC20Restrict (just saving space)
   // Don't need newtokenRestriction, you can just set ERC20RestrictBalanceRequirement to zero
   function changeSettings(
-    uint256 newERC20RestrictBalanceRequirement
+    uint256 newERC20RestrictBalanceRequirement,
+    address newERC20Restrict
   ) public isOwner {
+    ERC20Restrict = newERC20Restrict;
     ERC20RestrictBalanceRequirement = newERC20RestrictBalanceRequirement;
   }
 

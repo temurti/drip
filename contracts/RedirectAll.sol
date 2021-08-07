@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -162,7 +162,8 @@ contract RedirectAll is SuperAppBase {
             // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion added to current flow rate
             newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
             int96 newFlowToAffiliate = _ap.affiliateToOutflow[affiliate] + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
-
+            console.logInt(_ap.affiliateToOutflow[affiliate]);
+            console.logInt(changeInFlowSubscriber);
             // increase/decrease the old flowRate to affiliate by [difference] amount in proportion to _ap.affiliatePortion - delete if zero
             if (newFlowToAffiliate == 0) {
                 newCtx = _deleteFlow(address(this) , affiliate , newCtx);
@@ -201,17 +202,47 @@ contract RedirectAll is SuperAppBase {
         // require new receiver not be another super app or zero address (hell, actually if you wanna send your cashflow NFT into oblivion, be our guest. Saves contract space for us)
         // require(newAffiliate != address(0), "0addr");
         require(!_ap.host.isApp(ISuperApp(newAffiliate)), "SA");
-        
+        // require that the newAffiliate doesn't already have an outflow
+        // require(_ap.affiliateToOutflow[newAffiliate] == 0, "AlreadyAff");
+
         // if there's already an outflow for the tokenId:
-        if (_ap.affiliateToOutflow[newAffiliate] != 0) {
+        if (_ap.affiliateToOutflow[oldAffiliate] != 0) {
             // delete stream to old affiliate
-            _deleteFlow(address(this), _ap.tokenToAffiliate[tokenId]);
+            _deleteFlow(address(this), oldAffiliate);
 
             // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
             _ap.tokenToAffiliate[tokenId] = newAffiliate;
 
-            // start equivalent stream to new affiliate
-            _createFlow(newAffiliate, _ap.affiliateToOutflow[oldAffiliate]); // calling this without Context makes it take a lot more 
+            // Get currentFlowToAffiliate
+            int96 currentFlowToNewAffiliate = _ap.affiliateToOutflow[newAffiliate];
+
+            // if the new affiliate doesn't have a flow, createFlow
+            if (currentFlowToNewAffiliate == 0) {
+                _createFlow(newAffiliate, _ap.affiliateToOutflow[oldAffiliate]);
+                // Add to the affiliateToOutflow the new affiliate and set it to the entire flow of the old affiliate (because the affiliate doesn't have a current flow)
+                _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];  
+            }
+            // else, (new affiliate already has a flow), update to increase it
+            else {
+                _updateFlow(newAffiliate, currentFlowToNewAffiliate + _ap.affiliateToOutflow[oldAffiliate]);
+                // Add to the affiliateToOutflow the new affiliate and set it to the entire flow of the old affiliate plus the current flow the the new affiliate
+                _ap.affiliateToOutflow[newAffiliate] = currentFlowToNewAffiliate + _ap.affiliateToOutflow[oldAffiliate];
+            }
+            
+            // // add new affiliate to affiliateToOutflow and set its outflow rate equal to the old affiliates
+            // _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];
+
+            // delete old affiliate from affiliateToOutflow (affiliate address => outFlowRate)
+            delete _ap.affiliateToOutflow[oldAffiliate];
+
+        } 
+        // need to update affiliate program details even if it's a cashflow-less affiliate NFT
+        else {
+
+            // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
+            _ap.tokenToAffiliate[tokenId] = newAffiliate;
+
+            // @dev are any of the below statements unncessary
 
             // add new affiliate to affiliateToOutflow and set its outflow rate equal to the old affiliates
             _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];

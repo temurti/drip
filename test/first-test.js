@@ -124,7 +124,6 @@ describe("TradeableFlow", function () {
             sf.agreements.cfa.address,
             daix.address,                // SuperToken accepted by app
             uwl.address,                 // ERC20Restrict token
-            true,                        // Whether or not to restrict on balance of ERC20Restrict
             2000                         // Affiliate Portion (20%)
         );
 
@@ -173,14 +172,15 @@ describe("TradeableFlow", function () {
     }
 
     async function logUsers(userList) {
-        console.log("USER\t|\tNETFLOW")
-        console.log("------------------------")
+        console.log("USER\t|\tNETFLOW\t|\tAFFILIATE")
+        console.log("------------------------------------------------")
         for (let i = 0; i < userList.length; i++) {
-            console.log(`${userList[i].alias}\t|\t${(await userList[i].details()).cfa.netFlow}`)
+            console.log(`${userList[i].alias}\t|\t${(await userList[i].details()).cfa.netFlow}\t|\t${alias_directory[( await app.getAffiliate( userList[i].address ) )]}`)
+            // \t|\t${(await user_directory.app.getAffiliate())}`)
         }
-        console.log("------------------------")
+        console.log("------------------------------------------------")
         console.log(`App\t|\t${(await user_directory.app.details()).cfa.netFlow}`)
-        console.log("========================")
+        console.log("================================================")
     }
 
     async function hasFlows(user) {
@@ -223,6 +223,10 @@ describe("TradeableFlow", function () {
     }
 
 
+    // TODO: edge cases 
+    //    - affiliate owns more than one NFT
+    //    - an affiliate is also an affiliated subscriber
+
     describe("sending flows", async function () {
 
         let switchBoard = {
@@ -232,7 +236,9 @@ describe("TradeableFlow", function () {
             "_updateOutflow no aff (increase)":false,
             "_updateOutflow no aff (decrease)": false,
             "_updateOutflow w/ aff (increase then decrease)": false,
-            "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": true
+            "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": false,
+            "_createOutflow w/ aff, 1 subscribers, NFT transfer": false,
+            "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": true
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -247,8 +253,6 @@ describe("TradeableFlow", function () {
                 console.log("NFT Balance of Alice:", (await app.balanceOf(bob.address)).toString() )
                 console.log("URI of NFT:", (await app.tokenURI(1)))
 
-                console.log("✅ Token Requirements Passed ✅")
-
                 // TODO: test changing ERC20 restrictions
             });
 
@@ -260,6 +264,7 @@ describe("TradeableFlow", function () {
             // SET UP
 
                 const { alice , bob, admin } = user_directory
+                const userList = [alice , bob, admin]
                 const rate = 0.0000001
 
                 // Mint Bob 10000 $UWL and an affiliate NFT
@@ -270,8 +275,6 @@ describe("TradeableFlow", function () {
                 // Upgrade all of Alice and Bob's DAI
                 await upgrade([alice]);
                 await upgrade([bob]);
-                let initialAliceBal = await checkDAIXBalance(alice);
-                let initialBobBal = await checkDAIXBalance(bob);
 
             // PART 1: User with no affiliation opens stream to app but with erratic affiliate code
 
@@ -286,18 +289,7 @@ describe("TradeableFlow", function () {
                     flowRate:     "10000",
                     userData:     aliceEncodedUserData});
 
-                // Assert that equal flow is opened to admin by App
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                // assert.equal(adminFlowRate,rate*(10**18),"Admin Net Flow is not rate")
-
-                aliceFlowRate = (await alice.details()).cfa.netFlow
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                // assert.equal(aliceFlowRate,-rate*(10**18),"Alice Net Flow is not -(rate)")
-
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("App's Net Flow:",appFlowRate)
-                // assert.equal(appFlowRate,0,"App Net Flow is not zero")
+                await logUsers(userList)
 
             // PART 2: Check that app handles additional flow properly
 
@@ -309,19 +301,7 @@ describe("TradeableFlow", function () {
                     flowRate:     "10000",
                     userData:     aliceEncodedUserData});
 
-                // Check that equal flow is opened to admin by App (now should be twice rate)
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                // assert.equal(adminFlowRate,2*rate*(10**18),"Admin Net Flow is not rate")
-
-                bobFlowRate = (await bob.details()).cfa.netFlow
-                console.log("Bob's Net Flow:",bobFlowRate)
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                // assert.equal(aliceFlowRate,-rate*(10**18),"Alice Net Flow is not -(rate)")
-
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("App's Net Flow:",appFlowRate)
-                // assert.equal(appFlowRate,0,"App Net Flow is not zero")
+                await logUsers(userList)
 
             });
 
@@ -333,6 +313,7 @@ describe("TradeableFlow", function () {
         // SET UP
 
             const { alice , bob , carol , admin } = user_directory
+            const userList = [ alice , bob , carol , admin ]
             const rate = 0.0000001
 
             // Mint Bob 10000 $UWL and an affiliate NFT
@@ -348,14 +329,6 @@ describe("TradeableFlow", function () {
             // Give App a little DAIx so it doesn't get mad over deposit allowance
             await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
 
-            // Give balances a look
-            console.log("Balance Check ✅")
-            await checkDAIXBalance(alice);
-            await checkDAIXBalance(bob);
-            await checkDAIXBalance(carol);
-            await checkDAIXBalance(user_directory.app);
-
-
         // PART 1: Open stream from Alice with Bob's affiliate code "BlueWhale"
             console.log("=== PART 1: Open stream from Alice with Bob's affiliate code 'BlueWhale' ===")
 
@@ -370,20 +343,7 @@ describe("TradeableFlow", function () {
                 flowRate:     "10000",
                 userData:     aliceEncodedUserData});
 
-            // Assert that equal flow is opened to admin by App
-            adminFlowRate = (await admin.details()).cfa.netFlow
-            console.log("Admin's Net Flow:",adminFlowRate)
-            // assert.equal(adminFlowRate,rate*(10**18),"Admin Net Flow is not rate")
-
-            aliceFlowRate = (await alice.details()).cfa.netFlow
-            bobFlowRate = (await bob.details()).cfa.netFlow
-            console.log("Bob's Net Flow:",bobFlowRate)              // Bob's the affiliate and should be receiving 20% of flowRate in the createFlow call
-            console.log("Alice's Net Flow:",aliceFlowRate)
-            // assert.equal(aliceFlowRate,-rate*(10**18),"Alice Net Flow is not -(rate)")
-
-            appFlowRate = (await user_directory.app.details()).cfa.netFlow
-            console.log("App's Net Flow:",appFlowRate)
-            // assert.equal(appFlowRate,0,"App Net Flow is not zero")
+            await logUsers(userList)
         
         // PART 2: Open stream from Carol with Bob's affiliate code "BlueWhale"
             console.log("=== PART 2: Open stream from Carol with Bob's affiliate code 'BlueWhale' ===")
@@ -399,18 +359,7 @@ describe("TradeableFlow", function () {
                 flowRate:     "10000",
                 userData:     carolEncodedUserData});
 
-            // Assert that equal flow is opened to admin by App
-            adminFlowRate = (await admin.details()).cfa.netFlow
-            aliceFlowRate = (await alice.details()).cfa.netFlow
-            bobFlowRate = (await bob.details()).cfa.netFlow
-            carolFlowRate = (await carol.details()).cfa.netFlow
-            appFlowRate = (await user_directory.app.details()).cfa.netFlow
-            console.log("Admin's Net Flow:",adminFlowRate)
-            console.log("Bob's Net Flow:",bobFlowRate)              // Bob's the affiliate and should be receiving 20% of flowRate in the createFlow call
-            console.log("Alice's Net Flow:",aliceFlowRate)
-            console.log("Carol's Net Flow:",carolFlowRate)
-            console.log("App's Net Flow:",appFlowRate)
-
+            await logUsers(userList)
 
             });
 
@@ -421,6 +370,7 @@ describe("TradeableFlow", function () {
             it("Testing _updateOutflow increase without affiliation", async () => {
             // SET UP
                 const { alice , bob , carol , admin } = user_directory
+                const userList = [alice , bob , carol , admin]
                 const rate = 0.0000001
 
                 // Upgrade all of Alice, Carol, and Bob's DAI
@@ -430,13 +380,6 @@ describe("TradeableFlow", function () {
 
                 // Give App a little DAIx so it doesn't get mad over deposit allowance
                 await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
-
-                // Give balances a look
-                console.log("DAIx Balance Check ✅")
-                await checkDAIXBalance(alice);
-                await checkDAIXBalance(bob);
-                await checkDAIXBalance(carol);
-                await checkDAIXBalance(user_directory.app);
 
                 let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"");
 
@@ -451,14 +394,7 @@ describe("TradeableFlow", function () {
                     userData:     aliceEncodedUserData
                 });
 
-                // Assert that equal flow is opened to admin by App
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                aliceFlowRate = (await alice.details()).cfa.netFlow
-                carolFlowRate = (await carol.details()).cfa.netFlow
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                console.log("App's Net Flow:",appFlowRate)
+                logUsers(userList)
                 
             // PART 2
                 console.log("=== PART 2: Increase stream from Alice to app by 2x ===")
@@ -471,15 +407,7 @@ describe("TradeableFlow", function () {
                     aliceEncodedUserData
                 });
 
-                // Assert that equal flow is opened to admin by App
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                aliceFlowRate = (await alice.details()).cfa.netFlow
-                carolFlowRate = (await carol.details()).cfa.netFlow
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                console.log("App's Net Flow:",appFlowRate)
-
+                logUsers(userList)
 
             });
 
@@ -490,6 +418,7 @@ describe("TradeableFlow", function () {
             it("Testing _updateOutflow decrease without affiliation", async () => {
             // SET UP
                 const { alice , bob , carol , admin } = user_directory
+                const userList = [ alice , bob , carol , admin ]
                 const rate = 0.0000001
 
                 // Upgrade all of Alice, Carol, and Bob's DAI
@@ -499,13 +428,6 @@ describe("TradeableFlow", function () {
 
                 // Give App a little DAIx so it doesn't get mad over deposit allowance
                 await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
-
-                // Give balances a look
-                console.log("DAIx Balance Check ✅")
-                await checkDAIXBalance(alice);
-                await checkDAIXBalance(bob);
-                await checkDAIXBalance(carol);
-                await checkDAIXBalance(user_directory.app);
 
                 let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"");
 
@@ -520,14 +442,7 @@ describe("TradeableFlow", function () {
                     userData:     aliceEncodedUserData
                 });
 
-                // Assert that equal flow is opened to admin by App
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                aliceFlowRate = (await alice.details()).cfa.netFlow
-                carolFlowRate = (await carol.details()).cfa.netFlow
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                console.log("App's Net Flow:",appFlowRate)
+                await logUsers(userList)
 
             // PART 2: cut stream in half
                 console.log("=== PART 2: Decrease stream from Alice to app by 1/2 ===")
@@ -540,15 +455,7 @@ describe("TradeableFlow", function () {
                     userData:     aliceEncodedUserData
                 });
 
-                // Assert that equal flow is opened to admin by App
-                adminFlowRate = (await admin.details()).cfa.netFlow
-                aliceFlowRate = (await alice.details()).cfa.netFlow
-                carolFlowRate = (await carol.details()).cfa.netFlow
-                appFlowRate = (await user_directory.app.details()).cfa.netFlow
-                console.log("Admin's Net Flow:",adminFlowRate)
-                console.log("Alice's Net Flow:",aliceFlowRate)
-                console.log("App's Net Flow:",appFlowRate)
-                
+                await logUsers(userList)
             
             });
         }
@@ -720,6 +627,208 @@ describe("TradeableFlow", function () {
                 // Check flow results - did affiliate share get increased?
                 await logUsers(userList)
 
+
+            });
+
+        }
+
+        if (switchBoard["_createOutflow w/ aff, 1 subscribers, NFT transfer"]) {
+
+            it("Testing _createOutflow with affiliation, 1 subscribers, NFT transfer", async () => {
+        // SET UP
+
+            const { alice , bob , carol , admin } = user_directory
+            const userList = [ alice , bob , carol , admin ]
+            const rate = 0.0000001
+
+            // Mint Bob 10000 $UWL and an affiliate NFT
+            await uwl.transfer(bob.address,10000, {from:alice.address})
+            await checkTokenBalance(bob,uwl)
+            await app.mint("BlueWhale", {from:bob.address})
+
+            // Upgrade all of Alice, Carol, and Bob's DAI
+            await upgrade([alice]);
+            await upgrade([bob]);
+            await upgrade([carol]);
+
+            // Give App a little DAIx so it doesn't get mad over deposit allowance
+            await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
+
+        // PART 1
+            console.log("=== PART 1: Open stream from Alice with Bob's affiliate code 'BlueWhale' ===")
+
+            // Create valid affiliate code
+            let aliceEncodedUserData = web3.eth.abi.encodeParameter('string','BlueWhale');
+
+            // Start flow from Alice to App at 0.001 DAI/second
+            await sf.cfa.createFlow({
+                superToken:   daix.address, 
+                sender:       alice.address,
+                receiver:     user_directory.app.address,
+                flowRate:     "10000",
+                userData:     aliceEncodedUserData});
+
+            await logUsers(userList);
+        
+        // PART 2
+            console.log("=== PART 2: Bob transfer affiliate NFT to Carol ===")
+
+            // Transfer affiliate NFT to Carol from Bob
+            await app.transferFrom(
+                bob.address, 
+                carol.address, 
+                1, 
+                {from:bob.address}
+            );
+
+            await logUsers(userList);
+
+        // PART 3
+            console.log("=== PART 3: Pass it back to Bob ===")
+
+            // Transfer affiliate NFT to Bob from Carol
+            await app.transferFrom(
+                carol.address, 
+                bob.address, 
+                1, 
+                {from:carol.address}
+            );
+
+            await logUsers(userList);
+
+            });
+
+
+        }
+
+        if (switchBoard["_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer"]) {
+
+            it("Testing _updateOutflow increase/decrease with multiple affiliates and subscribers and then an NFT transfer", async () => {
+            // SET UP
+                const { alice , bob , emma , carol , dan , admin } = user_directory
+                userList = [alice , bob , emma , carol , dan , admin]
+                const rate = 0.0000001
+
+                // Mint Bob and Carol 10000 $UWL and an affiliate NFT
+                await uwl.transfer(carol.address,10000, {from:alice.address})
+                await uwl.transfer(dan.address,10000, {from:alice.address})
+                await checkTokenBalance(carol,uwl)
+                await checkTokenBalance(dan,uwl)
+                await app.mint("BlueWhale", {from:carol.address})
+                await app.mint("KillerWhale", {from:dan.address})
+
+                // Upgrade all of Alice, Carol, and Bob's DAI
+                await upgrade([alice]);
+                await upgrade([bob]);
+                await upgrade([carol]);
+                await upgrade([dan]);
+                await upgrade([emma]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
+
+                let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"BlueWhale");
+                let bobEncodedUserData = web3.eth.abi.encodeParameter('string',"KillerWhale");
+                let emmaEncodedUserData = web3.eth.abi.encodeParameter('string',"KillerWhale");
+
+            // PART 1
+                console.log("=== PART 1: Open stream from Alice, Bob, Emma to app with respective affiliate codes ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   daix.address, 
+                    sender:       alice.address,
+                    receiver:     user_directory.app.address,
+                    flowRate:     "10000",
+                    userData:     aliceEncodedUserData
+                });
+
+                await sf.cfa.createFlow({
+                    superToken:   daix.address, 
+                    sender:       bob.address,
+                    receiver:     user_directory.app.address,
+                    flowRate:     "10000",
+                    userData:     bobEncodedUserData
+                });
+
+                await sf.cfa.createFlow({
+                    superToken:   daix.address, 
+                    sender:       emma.address,
+                    receiver:     user_directory.app.address,
+                    flowRate:     "10000",
+                    userData:     emmaEncodedUserData
+                });
+
+                // Check flow results - did affiliate get share?
+                await logUsers(userList)
+
+            // PART 2
+                console.log("=== PART 2: Increase stream from Alice and Bob to app by 3x ===")
+
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender: alice.address,
+                    receiver: user_directory.app.address,
+                    flowRate: "30000"
+                });
+
+                
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender: bob.address,
+                    receiver: user_directory.app.address,
+                    flowRate: "30000"
+                });
+
+                // Check flow results - did affiliate share get increased?
+                await logUsers(userList)
+
+            // PART 3
+                console.log("=== PART 3: Reduce Alice's stream by 1/2 and end Bob's stream ===")
+
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender:     alice.address,
+                    receiver:   user_directory.app.address,
+                    flowRate:   "15000"
+                });
+
+                await sf.cfa.deleteFlow({
+                    superToken: daix.address,
+                    sender:     bob.address,
+                    receiver:   user_directory.app.address,
+                    by:         bob.address
+                });
+
+                // Check flow results - did affiliate share get increased?
+                await logUsers(userList)
+
+            // PART 4
+                console.log("=== PART 4: Dan transfer affiliate NFT to Carol ===")
+
+                // Transfer affiliate NFT to Bob from Carol
+                await app.transferFrom(
+                    dan.address, 
+                    carol.address, 
+                    2, 
+                    {from:dan.address}
+                );
+
+                await logUsers(userList);
+
+            // PART 5
+                console.log("=== PART 5: Emma, one of Dan's previous affiliate subscribers, increases her stream by 2x (should increase Carol's stream now) ===")
+
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender:     emma.address,
+                    receiver:   user_directory.app.address,
+                    flowRate:   "20000"
+                });
+                
+                // @dev - see console screenshot, there's a createFlow happening where there should be an update. Making netflow non-zero
+
+                // Check flow results - did affiliate get share?
+                await logUsers(userList)
 
             });
 
