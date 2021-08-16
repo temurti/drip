@@ -26,6 +26,7 @@ library TradeableFlowStorage  {
     ISuperToken acceptedToken;            // The accepted token (e.g. DAIx)
     mapping(uint256 => address) tokenToAffiliate;        // Maps token ID to affiliate address
     mapping(string => uint256) referralcodeToToken;      // Maps referral code to tokenIds
+    mapping(address => int96) affiliateToOutflow;        // Maps affiliate address to their outflow rate
     mapping(address => SubscriberProfile) subscribers;   // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
     int96 affiliatePortion;                              // Portion of referred subscriber revenue that corresponding affiliates receive ( affiliatePortion / 10000 ) should equal desired portion. If this is greater than 10000, contract will NOT work
   }

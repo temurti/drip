@@ -176,7 +176,6 @@ describe("TradeableFlow", function () {
         console.log("------------------------------------------------")
         for (let i = 0; i < userList.length; i++) {
             console.log(`${userList[i].alias}\t|\t${(await userList[i].details()).cfa.netFlow}\t|\t${alias_directory[( await app.getAffiliate( userList[i].address ) )]}`)
-            // \t|\t${(await user_directory.app.getAffiliate())}`)
         }
         console.log("------------------------------------------------")
         console.log(`App\t|\t${(await user_directory.app.details()).cfa.netFlow}`)
@@ -224,8 +223,8 @@ describe("TradeableFlow", function () {
 
 
     // TODO: edge cases 
-    //    - affiliate owns more than one NFT
-    //    - an affiliate is also an affiliated subscriber
+    //    - multi-NFT cases
+    //    - Transfering pre-cashflow NFTs cashflows
 
     describe("sending flows", async function () {
 
@@ -238,7 +237,8 @@ describe("TradeableFlow", function () {
             "_updateOutflow w/ aff (increase then decrease)": false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": false,
             "_createOutflow w/ aff, 1 subscribers, NFT transfer": false,
-            "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": true
+            "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
+            "affiliate being a subscriber as well":true
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -834,6 +834,103 @@ describe("TradeableFlow", function () {
 
         }
 
+        if (switchBoard["affiliate being a subscriber as well"]) {
+
+            it("Testing what happens when an affiliate is also a subscriber", async () => {
+            // SET UP
+                const { alice , bob , carol , admin } = user_directory
+                userList = [alice , bob , carol , admin]
+                const rate = 0.0000001
+
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("BlueWhale", {from:alice.address})
+
+                // Upgrade all of Alice and Bob's DAI
+                await upgrade([alice]);
+                await upgrade([bob]);
+                await upgrade([carol]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
+
+                let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+                // if you're an affiliate, can you refer yourself and get a discount plus the affiliate portion of your stream back? Partly.
+                // The app should detect if you are an affiliate. If you are, then the discount gets waived. You're already getting your stream back!
+                console.log('=== PART 1: Alice, who is an affiliate, opens up a stream to the app with her own referral code')
+                
+                await sf.cfa.createFlow({
+                    superToken:   daix.address, 
+                    sender:       alice.address,
+                    receiver:     user_directory.app.address,
+                    flowRate:     "10000",
+                    userData:     aliceEncodedUserData
+                });
+
+                // Alice should have a netflow of -8000
+                await logUsers(userList)
+
+                console.log(`=== PART 2: Bob opens a stream with Alice's referral`)
+
+                await sf.cfa.createFlow({
+                    superToken:   daix.address, 
+                    sender:       bob.address,
+                    receiver:     user_directory.app.address,
+                    flowRate:     "10000",
+                    userData:     aliceEncodedUserData
+                });
+
+                // Alice should have a netflow of -6000
+                await logUsers(userList)
+
+                console.log(`=== PART 3: Alice transfers her affiliate NFT to Bob`)
+
+                await app.transferFrom(
+                    alice.address, 
+                    bob.address, 
+                    1, 
+                    {from:alice.address}
+                );
+    
+                // Bob should now have the netflow of -6000
+                await logUsers(userList);
+
+                console.log(`=== PART 4: Alice increases her stream by 2x and Bob decreases by (1/2)x`)
+
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender: alice.address,
+                    receiver: user_directory.app.address,
+                    flowRate: "20000"
+                });
+
+                await sf.cfa.updateFlow({
+                    superToken: daix.address,
+                    sender: bob.address,
+                    receiver: user_directory.app.address,
+                    flowRate: "5000"
+                });
+
+                // Bob is paying out -5000
+                // Bob is receiving 20% of Alice's 20000, so +4000
+                // Bob is receiving 20% of his own 5000, so +1000
+                // Bob netflow should be zero - he broke even!
+                await logUsers(userList);
+
+                console.log(`=== PART 5: Bob cancels his stream`)
+
+                await sf.cfa.deleteFlow({
+                    superToken: daix.address,
+                    sender:     bob.address,
+                    receiver:   user_directory.app.address,
+                    by:         bob.address
+                });
+
+                await logUsers(userList);
+
+            });
+        
+        }
 
     });
 });

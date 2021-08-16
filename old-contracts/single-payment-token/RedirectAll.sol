@@ -79,7 +79,7 @@ contract RedirectAll is SuperAppBase {
             // Get [affiliate] address associated with tokenId
             address affiliate = _ap.tokenToAffiliate[tokenId];
             // Get old flowRate to [affiliate] in affiliate => outflow mapping
-            (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), affiliate);
+            int96 currentFlowToAffiliate = _ap.affiliateToOutflow[affiliate];
 
             // if the affiliate address is not empty
             if (affiliate != address(0)) {
@@ -89,6 +89,9 @@ contract RedirectAll is SuperAppBase {
 
                 // capture the increased flowRate from this to owner (program owner's wallet) by new flowRate amount in proportion to (1 - _ap.affiliatePortion) (revenue).
                 newFlowToOwner = currentFlowToOwner + ( newFlowFromSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
+                
+                // update a mapping of affiliate => outflow | this way you can keep track of affiliate outflow for future changes. This may be unneccessary with getFlow
+                _ap.affiliateToOutflow[affiliate] = currentFlowToAffiliate;
 
                 // update a mapping of subscriber => SubscriberProfile.tokenId 
                 _ap.subscribers[subscriber].tokenId = tokenId;
@@ -100,6 +103,8 @@ contract RedirectAll is SuperAppBase {
                 } else {
                     newCtx = _updateFlow(affiliate,newFlowToAffiliate,newCtx);
                 }
+
+                _ap.affiliateToOutflow[affiliate] = newFlowToAffiliate;
 
             } 
             // else (somehow they are using an invalid affiliate code)
@@ -123,6 +128,8 @@ contract RedirectAll is SuperAppBase {
 
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        // update lastFlowRateToOwner in storage (not neccessary)
+        // _ap.lastFlowRateToOwner = newFlowToOwner;
 
     }
 
@@ -152,25 +159,27 @@ contract RedirectAll is SuperAppBase {
         // if the affiliate address is not empty
         if (affiliate != address(0)) {
 
-            // Get current flow to affiliate
-            (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), affiliate);
-
             // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion added to current flow rate
             newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
-            int96 newFlowToAffiliate = currentFlowToAffiliate + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
+            int96 newFlowToAffiliate = _ap.affiliateToOutflow[affiliate] + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
 
             // increase/decrease the old flowRate to affiliate by [difference] amount in proportion to _ap.affiliatePortion - delete if zero
             if (newFlowToAffiliate == 0) {
                 newCtx = _deleteFlow(address(this) , affiliate , newCtx);
             } else {
                 newCtx = _updateFlow(affiliate , newFlowToAffiliate , newCtx);
-            } 
+            }
+
+            // update a mapping of affiliate => outflow | this way you can keep track of affiliate outflow for future changes. This may be unneccessary with getFlow
+            _ap.affiliateToOutflow[affiliate] = newFlowToAffiliate; 
 
         }
         // (else) if the affiliate address is empty
         else {
+
             // Calculate new flow to owner as currentFlowToOwner + changeInFlowSubscriber
             newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;
+
         }
 
         // increase/decrease the current flowRate from this to owner (program owner's wallet) by [difference] amount in proportion to (1 - _ap.affiliatePortion) (revenue)
@@ -182,6 +191,8 @@ contract RedirectAll is SuperAppBase {
     
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        // update lastFlowRateToOwner in storage
+        // _ap.lastFlowRateToOwner = newFlowToOwner;
 
     }
 
@@ -192,27 +203,36 @@ contract RedirectAll is SuperAppBase {
         require(!_ap.host.isApp(ISuperApp(newAffiliate)), "SA");
         // require that the newAffiliate doesn't already have an outflow
         // require(_ap.affiliateToOutflow[newAffiliate] == 0, "AlreadyAff");
-        (,int96 oldAffiliateOutflow,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), oldAffiliate);
 
         // if there's already an outflow for the tokenId:
-        if (oldAffiliateOutflow != 0) {
+        if (_ap.affiliateToOutflow[oldAffiliate] != 0) {
             // delete stream to old affiliate
             _deleteFlow(address(this), oldAffiliate);
 
             // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
             _ap.tokenToAffiliate[tokenId] = newAffiliate;
 
-            // Get currentFlowToAffiliate (the new affiliate may already be an affiliate earning affiliate income)
-            (,int96 currentFlowToNewAffiliate,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), newAffiliate);
+            // Get currentFlowToAffiliate
+            int96 currentFlowToNewAffiliate = _ap.affiliateToOutflow[newAffiliate];
 
-            // if the new affiliate doesn't have a flow, createFlow equivalent to flow to previous affiliate to the new affiliate
+            // if the new affiliate doesn't have a flow, createFlow
             if (currentFlowToNewAffiliate == 0) {
-                _createFlow(newAffiliate, oldAffiliateOutflow);
+                _createFlow(newAffiliate, _ap.affiliateToOutflow[oldAffiliate]);
+                // Add to the affiliateToOutflow the new affiliate and set it to the entire flow of the old affiliate (because the affiliate doesn't have a current flow)
+                _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];  
             }
             // else, (new affiliate already has a flow), update to increase it
             else {
-                _updateFlow(newAffiliate, currentFlowToNewAffiliate + oldAffiliateOutflow);
+                _updateFlow(newAffiliate, currentFlowToNewAffiliate + _ap.affiliateToOutflow[oldAffiliate]);
+                // Add to the affiliateToOutflow the new affiliate and set it to the entire flow of the old affiliate plus the current flow the the new affiliate
+                _ap.affiliateToOutflow[newAffiliate] = currentFlowToNewAffiliate + _ap.affiliateToOutflow[oldAffiliate];
             }
+            
+            // // add new affiliate to affiliateToOutflow and set its outflow rate equal to the old affiliates
+            // _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];
+
+            // delete old affiliate from affiliateToOutflow (affiliate address => outFlowRate)
+            delete _ap.affiliateToOutflow[oldAffiliate];
 
         } 
         // need to update affiliate program details even if it's a cashflow-less affiliate NFT
@@ -220,6 +240,14 @@ contract RedirectAll is SuperAppBase {
 
             // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
             _ap.tokenToAffiliate[tokenId] = newAffiliate;
+
+            // @dev are any of the below statements unncessary
+
+            // add new affiliate to affiliateToOutflow and set its outflow rate equal to the old affiliates
+            _ap.affiliateToOutflow[newAffiliate] = _ap.affiliateToOutflow[oldAffiliate];
+
+            // delete old affiliate from affiliateToOutflow (affiliate address => outFlowRate)
+            delete _ap.affiliateToOutflow[oldAffiliate];
 
         }
 
