@@ -78,9 +78,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     // Set referral code to corresponding token
     _ap.referralcodeToToken[tokenURI] = tokenId;
 
-    // Initialize affiliate in affiliateToOutflow
-    _ap.affiliateToOutflow[msg.sender] = 0;
-
     // Emit event that NFT was minted
     emit NewAffiliateLink(tokenId, msg.sender);
 

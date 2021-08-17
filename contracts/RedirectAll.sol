@@ -190,8 +190,8 @@ contract RedirectAll is SuperAppBase {
         // require new receiver not be another super app or zero address (hell, actually if you wanna send your cashflow NFT into oblivion, be our guest. Saves contract space for us)
         // require(newAffiliate != address(0), "0addr");
         require(!_ap.host.isApp(ISuperApp(newAffiliate)), "SA");
-        // require that the newAffiliate doesn't already have an outflow
-        // require(_ap.affiliateToOutflow[newAffiliate] == 0, "AlreadyAff");
+
+        // Get old flow to affiliate (so just the current flow as it's about to be changed)
         (,int96 oldAffiliateOutflow,,) = _ap.cfa.getFlow(_ap.acceptedToken, address(this), oldAffiliate);
 
         // if there's already an outflow for the tokenId:

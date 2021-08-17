@@ -225,6 +225,9 @@ describe("TradeableFlow", function () {
     // TODO: edge cases 
     //    - multi-NFT cases
     //    - Transfering pre-cashflow NFTs cashflows
+    //    - Testing the subscriber switching payment tokens
+    //    - what if someone bypasses our frontend and mints an NFT with the same URI as another affiliate.
+    //      Would they steal the affiliates's income flow? TODO: track a mapping of tokenURIs and prevent someone from reusing one
 
     describe("sending flows", async function () {
 

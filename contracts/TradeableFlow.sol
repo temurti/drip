@@ -11,13 +11,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 
-
+// TODO: prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
-
-  // TODO: event emissions
   event NewAffiliateLink(uint tokenId, address affiliate);      // Emitted when a new affiliate link is created
 
   address public owner;
