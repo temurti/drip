@@ -29,12 +29,14 @@ describe("TradeableFlow", function () {
     };
 
     const names = ["Admin", "Alice", "Bob", "Carol", "Dan", "Emma", "Frank"];
+    const tokens = ["fDAI","fUSDC"]
 
     let sf;
     let dai;
     let daix;
     let app;
-    const user_directory = {}; // alias => sf.user
+    const token_directory = {}  // token => regulartoken, supertoken
+    const user_directory = {};  // alias => sf.user
     const alias_directory = {}; // address => alias
 
     before(async function () {
@@ -47,139 +49,155 @@ describe("TradeableFlow", function () {
     });
 
     beforeEach(async function () {
-        // Deploy fDAI ERC20 token
-        await deployTestToken(errorHandler, [":", "fDAI"], {
-            web3,
-            from: accounts[0],
-        });
-        // Deploy fDAI SuperToken
-        await deploySuperToken(errorHandler, [":", "fDAI"], {
-            web3,
-            from: accounts[0],
-        });
+        for (var i = 0; i < tokens.length; i++) {
+            // Deploy ERC20 token
+            await deployTestToken(errorHandler, [":", tokens[i]], {
+                web3,
+                from: accounts[0],
+            });
+            // Deploy SuperToken
+            await deploySuperToken(errorHandler, [":", tokens[i]], {
+                web3,
+                from: accounts[0],
+            });
+        }
+
         // Deploy and Initialize Superfluid JS SDK framework with fDAI token
         sf = new SuperfluidSDK.Framework({
             web3,
             version: "test",
-            tokens: ["fDAI"],
+            tokens: tokens,
         });
         await sf.initialize();
-        // Get DAIx token instance from SDK
-        daix = sf.tokens.fDAIx;
-        // Get DAI token instance from 
-        dai = await sf.contracts.TestToken.at(await sf.tokens.fDAI.address);
+
+        for (var i = 0; i < tokens.length; i++) {
+            
+            token_directory[tokens[i]] = {}
+            token_directory[tokens[i]]['supertoken'] = sf.tokens[tokens[i]+"x"]
+            token_directory[tokens[i]]['regulartoken'] = await sf.contracts.TestToken.at(await sf.tokens[tokens[i]].address)
+
+        }
+
         // Constructing a user dictionary with the below mapping of aliases to Superfluid user objects
         // Constructing a alias diction with the mapping of addresses to aliases
         for (var i = 0; i < names.length; i++) {
-            user_directory[names[i].toLowerCase()] = sf.user({
-                address: accounts[i],
-                token: daix.address,
-            });
-            user_directory[names[i].toLowerCase()].alias = names[i];
-            alias_directory[user_directory[names[i].toLowerCase()].address] = names[i];
+            // user_directory[names[i].toLowerCase()] = sf.user({
+            //     address: accounts[i],
+            //     token: daix.address,
+            // });
+            user_directory[names[i].toLowerCase()] = accounts[i];
+            // user_directory[names[i].toLowerCase()].alias = names[i];
+            alias_directory[user_directory[names[i].toLowerCase()]] = names[i];
             console.log(names[i],"|",accounts[i])
+
         }
-        // Mint 100000000 DAI for each user (DAI isn't transfered to users, just minted)
-        // Approving reception of DAIx for each user
-        for (const [, user] of Object.entries(user_directory)) {
-            if (user.alias === "App") return;
-            await web3tx(dai.mint, `${user.alias} mints many DAI`)(
-                user.address,
-                toWad(100000000),
-                {     
-                    from: user.address,
-                }
-            );
-            await web3tx(dai.approve, `${user.alias} approves DAIx`)(
-                daix.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-            checkDAIBalance(user)
+
+        for (var i = 0; i < tokens.length; i++) {
+            // Mint 100000000 regulartokens for each user 
+            // Approving reception of supertokens for each user
+            for (const [, user] of Object.entries(user_directory)) {
+                if (alias_directory[user] === "App") return;
+                await web3tx(token_directory[tokens[i]]['regulartoken'].mint, `${alias_directory[user]} mints many DAI`)(
+                    user,
+                    toWad(100000000),
+                    {     
+                        from: user,
+                    }
+                );
+                await web3tx(token_directory[tokens[i]]['regulartoken'].approve, `${alias_directory[user]} approves DAIx`)(
+                    token_directory[tokens[i]]['supertoken'].address,
+                    toWad(100000000),
+                    {
+                        from: user,
+                    }
+                );
+
+                checkTokenBalance(user,token_directory[tokens[i]]['regulartoken'])
+            }
+
+            console.log(tokens[i]+"x","|",token_directory[tokens[i]]['supertoken'].address);
         }
+
         //u.zero = { address: ZERO_ADDRESS, alias: "0x0" };
-        console.log("Admin:", user_directory.admin.address);
+        console.log("Admin:", user_directory.admin);
         console.log("Host:", sf.host.address);
         console.log("CFA:", sf.agreements.cfa.address);
-        console.log("DAIx",daix.address);
 
         // Mint "UWL" token
         uwl = await erc20Token.new(
             "Uniwhales",
             "UWL",
-            {from:user_directory.alice.address}
+            {from:user_directory.alice}
         )
         // await uwl._mint(user_directory.alice.address, 5*10e18)
         console.log("$UWL Address:",uwl.address)
-        console.log(`$UWL balance for Alice is ${await uwl.balanceOf(user_directory.alice.address)}`)
+        console.log(`$UWL balance for Alice is ${await uwl.balanceOf(user_directory.alice)}`)
 
         // Deploy TradeableFlow contract
         app = await TradeableFlow.new(
-            user_directory.admin.address,
+            user_directory.admin,
             "TradeableFlow",
             "TF",
             sf.host.address,
             sf.agreements.cfa.address,
-            daix.address,                // SuperToken accepted by app
-            uwl.address,                 // ERC20Restrict token
-            2000                         // Affiliate Portion (20%)
+            token_directory['fDAI']['supertoken'].address,      // SuperToken accepted by app
+            uwl.address,                                // ERC20Restrict token
+            2000                                        // Affiliate Portion (20%)
         );
 
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
 
         // Create Superfluid user for TradeableFlow contract
-        user_directory.app = sf.user({ address: app.address, token: daix.address });
-        user_directory.app.alias = "App";
-        await checkBalance(user_directory.app);
+        user_directory.app = app.address
+
     });
 
-    async function checkBalance(user) {
-        console.log("DAIx Balance of", user.alias, "is:", (await daix.balanceOf(user.address)).toString());
-    }
-
     async function checkTokenBalance(user,token) {
-        console.log(`$${await token.symbol()} Balance of`, user.alias, "is:", (await token.balanceOf(user.address)).toString());
+        console.log(`$${await token.symbol()} Balance of`, alias_directory[user], "is:", (await token.balanceOf(user)).toString());
     }
 
-    async function checkDAIBalance(user) {
-        let bal = parseInt(await dai.balanceOf(user.address));
-        console.log("DAI Balance of", user.alias, "is:", bal.toString());
-        return bal;
-    }
-    
-    async function checkDAIXBalance(user) {
-        let bal = parseInt(await daix.balanceOf(user.address));
-        console.log("DAIx Balance of", user.alias, "is:", bal.toString());
-        return bal
-    }
-
-    async function checkBalances(accounts) {
+    async function checkBalances(accounts,token) {
         for (let i = 0; i < accounts.length; ++i) {
-            await checkBalance(accounts[i]);
+            await checkTokenBalance(accounts[i],token);
         }
     }
 
-    async function upgrade(accounts) {
+    async function upgrade(accounts,supertoken) {
         for (let i = 0; i < accounts.length; ++i) {
             await web3tx(
-                daix.upgrade,
-                `${accounts[i].alias} upgrades many DAIx`
-            )(toWad(100000000), { from: accounts[i].address });
-            await checkBalance(accounts[i]);
+                supertoken.upgrade,
+                `${alias_directory[accounts[i]]} upgrades many ${await supertoken.symbol()}`
+            )(toWad(100000000), { from: accounts[i] });
+            await checkTokenBalance(accounts[i],supertoken);
         }
     }
 
     async function logUsers(userList) {
-        console.log("USER\t|\tNETFLOW\t|\tAFFILIATE")
-        console.log("------------------------------------------------")
-        for (let i = 0; i < userList.length; i++) {
-            console.log(`${userList[i].alias}\t|\t${(await userList[i].details()).cfa.netFlow}\t|\t${alias_directory[( await app.getAffiliate( userList[i].address ) )]}`)
+        let header = `USER\t`
+        for (let i = 0; i < tokens.length; ++i) {
+            header += `|\t${tokens[i]}x\t`
         }
-        console.log("------------------------------------------------")
-        console.log(`App\t|\t${(await user_directory.app.details()).cfa.netFlow}`)
-        console.log("================================================")
+        header += `|\tAFFILIATE`
+        console.log(header)
+        console.log("--------------------------------------------------------------------------------------")
+        for (let i = 0; i < userList.length; i++) {
+            row = `${alias_directory[userList[i]]}\t`
+            for (let j = 0; j < tokens.length; ++j) {
+                var tempUser = sf.user({ address: userList[i], token: token_directory[tokens[j]]['supertoken'].address });
+                row += `|\t${(await tempUser.details()).cfa.netFlow}\t`
+            }
+            row += `|\t${alias_directory[( await app.getAffiliateForSubscriber( userList[i] ) )]}`
+            console.log(row)
+        }
+        console.log("--------------------------------------------------------------------------------------")
+        bottomline = `App\t`
+        for (let i = 0; i < tokens.length; ++i) {
+            let tempUser = sf.user({ address: user_directory.app, token: token_directory[tokens[i]]['supertoken'].address });
+            bottomline += `|\t${(await tempUser.details()).cfa.netFlow}\t`
+        }
+        bottomline += "|"
+        console.log(bottomline)
+        console.log("======================================================================================")
     }
 
     async function hasFlows(user) {
@@ -192,7 +210,7 @@ describe("TradeableFlow", function () {
         const isJailed = await sf.host.isAppJailed(app.address);
         !isApp && console.error("App is not an App");
         isJailed && console.error("app is Jailed");
-        await checkBalance(u.app);
+        await checkTokenBalance(u.app,daix);
         await checkOwner();
     }
 
@@ -221,13 +239,11 @@ describe("TradeableFlow", function () {
         return true;
     }
 
-
     // TODO: edge cases 
     //    - multi-NFT cases
     //    - Transfering pre-cashflow NFTs cashflows
     //    - Testing the subscriber switching payment tokens
-    //    - what if someone bypasses our frontend and mints an NFT with the same URI as another affiliate.
-    //      Would they steal the affiliates's income flow? TODO: track a mapping of tokenURIs and prevent someone from reusing one
+    //    - test that someone can't mint an NFT with the same URI as another one to prevent affiliate flows from being stolen
 
     describe("sending flows", async function () {
 
@@ -846,15 +862,15 @@ describe("TradeableFlow", function () {
                 const rate = 0.0000001
 
                 // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
-                await app.mint("BlueWhale", {from:alice.address})
+                await app.mint("BlueWhale", {from:alice})
 
                 // Upgrade all of Alice and Bob's DAI
-                await upgrade([alice]);
-                await upgrade([bob]);
-                await upgrade([carol]);
+                await upgrade([alice],token_directory["fDAI"]["supertoken"]);
+                await upgrade([bob],token_directory["fDAI"]["supertoken"]);
+                await upgrade([carol],token_directory["fDAI"]["supertoken"]);
 
                 // Give App a little DAIx so it doesn't get mad over deposit allowance
-                await daix.transfer(user_directory.app.address, 100000000000000, {from:alice.address});
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
 
                 let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"BlueWhale");
 
@@ -863,9 +879,9 @@ describe("TradeableFlow", function () {
                 console.log('=== PART 1: Alice, who is an affiliate, opens up a stream to the app with her own referral code')
                 
                 await sf.cfa.createFlow({
-                    superToken:   daix.address, 
-                    sender:       alice.address,
-                    receiver:     user_directory.app.address,
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       alice,
+                    receiver:     user_directory.app,
                     flowRate:     "10000",
                     userData:     aliceEncodedUserData
                 });
@@ -876,9 +892,9 @@ describe("TradeableFlow", function () {
                 console.log(`=== PART 2: Bob opens a stream with Alice's referral`)
 
                 await sf.cfa.createFlow({
-                    superToken:   daix.address, 
-                    sender:       bob.address,
-                    receiver:     user_directory.app.address,
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
                     flowRate:     "10000",
                     userData:     aliceEncodedUserData
                 });
@@ -889,10 +905,10 @@ describe("TradeableFlow", function () {
                 console.log(`=== PART 3: Alice transfers her affiliate NFT to Bob`)
 
                 await app.transferFrom(
-                    alice.address, 
-                    bob.address, 
+                    alice, 
+                    bob, 
                     1, 
-                    {from:alice.address}
+                    {from:alice}
                 );
     
                 // Bob should now have the netflow of -6000
@@ -901,16 +917,16 @@ describe("TradeableFlow", function () {
                 console.log(`=== PART 4: Alice increases her stream by 2x and Bob decreases by (1/2)x`)
 
                 await sf.cfa.updateFlow({
-                    superToken: daix.address,
-                    sender: alice.address,
-                    receiver: user_directory.app.address,
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender: alice,
+                    receiver: user_directory.app,
                     flowRate: "20000"
                 });
 
                 await sf.cfa.updateFlow({
-                    superToken: daix.address,
-                    sender: bob.address,
-                    receiver: user_directory.app.address,
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender: bob,
+                    receiver: user_directory.app,
                     flowRate: "5000"
                 });
 
@@ -923,10 +939,10 @@ describe("TradeableFlow", function () {
                 console.log(`=== PART 5: Bob cancels his stream`)
 
                 await sf.cfa.deleteFlow({
-                    superToken: daix.address,
-                    sender:     bob.address,
-                    receiver:   user_directory.app.address,
-                    by:         bob.address
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender:     bob,
+                    receiver:   user_directory.app,
+                    by:         bob
                 });
 
                 await logUsers(userList);

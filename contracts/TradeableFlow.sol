@@ -11,14 +11,13 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 
-// TODO: prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
   event NewAffiliateLink(uint tokenId, address affiliate);      // Emitted when a new affiliate link is created
 
-  address public owner;
+  address public owner;                                   // Public owner address so it's easy to see (not totally necessary)
   address public ERC20MintRestrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
   uint256 public ERC20MintRestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor but with changeSettings()
 
@@ -28,7 +27,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     string memory _symbol,
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
-    ISuperToken acceptedToken,
+    ISuperToken acceptedTokenStarter,
     address _ERC20MintRestrict,
     int96 _affiliatePortion
   )
@@ -36,13 +35,13 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     RedirectAll (
       host,
       cfa,
-      acceptedToken,
+      acceptedTokenStarter,
       _owner
      )
   { 
     ERC20MintRestrict = _ERC20MintRestrict;
-    owner = _owner;
     _ap.affiliatePortion = _affiliatePortion;
+    owner = _owner;
   }
 
   modifier hasEnoughERC20Restrict() {
@@ -51,18 +50,15 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   modifier isOwner() {
-    require(msg.sender == owner,"!own");
+    require(msg.sender == _ap.owner,"!own"); // Shouldn't be minting affiliate NFTs to contract deployer
     _;
-  }
-
-  function getAffiliate(address subscriber) public view returns (address) {
-    return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
   }
 
   // @dev Potential affiliate will call this function if they want an NFT for themself
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
-    require(msg.sender != _ap.owner, "!own"); // Shouldn't be minting affiliate NFTs to contract deployer
+    require(msg.sender != _ap.owner, "!own");               // Shouldn't be minting affiliate NFTs to contract deployer
+    require(_ap.referralCodes[tokenURI] == false,"!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -105,19 +101,31 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       return super.tokenURI(tokenId);
   }
 
-  // Don't need to set a tokenRestriction, you can just set ERC20RestrictBalanceRequirement to zero
+  // @notice You can just set ERC20RestrictBalanceRequirement to zero if you don't want there to be a token restriction
   function setERC20MintRestriction(
     uint256 newERC20MintRestrictBalanceRequirement,
     address newERC20MintRestrict
-  ) public isOwner {
+  ) external isOwner {
     ERC20MintRestrict = newERC20MintRestrict;
     ERC20MintRestrictBalanceRequirement = newERC20MintRestrictBalanceRequirement;
   }
 
-  function getAffiliateTokenId(
+  // Set another acceptable super tokens for subscription payments beyond the acceptedTokenStarter started off with
+  function setNewAcceptedToken(
+    ISuperToken supertoken
+  ) external isOwner {
+    _ap.acceptedTokensList.push(supertoken);
+    _ap.acceptedTokens[supertoken] = true;
+  }
+
+  function getAffiliateTokenIdForSubscriber(
     address subscriber
-  ) public returns (uint256 tokenId) {
+  ) external view returns (uint256 tokenId) {
     return _ap.subscribers[subscriber].tokenId;
+  }
+
+  function getAffiliateForSubscriber(address subscriber) external view returns (address) {
+    return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
   }
 
   function getERC20MintRestrictBalanceRequirement() external view returns (uint256) {
