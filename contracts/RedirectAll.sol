@@ -69,8 +69,10 @@ contract RedirectAll is SuperAppBase {
         // Get current flowRate from this to owner (revenue) from lastFlowRateToOwner in storage (not necessary, just get current, this is something updated in callback, doesn't occur before this function is called. Current will suffice)
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(supertoken, address(this), _ap.owner);
 
-        // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
-        int96 newFlowToOwner;
+        // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount of newFlowFromSubscriber)
+        // We are initially setting it up equal to currentFlow + newFlow as if there was no affiliate. 
+        // If there is affiliation, the if-else below will override it to currentFlow + newFlowFromSubscriber, less the affiliate portion
+        int96 newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
 
         // if there is user data:
         if ( keccak256( bytes(affCode) ) != keccak256( bytes("") ) ) {
@@ -103,23 +105,28 @@ contract RedirectAll is SuperAppBase {
                 }
 
             } 
-            // else (somehow they are using an invalid affiliate code)
-            else {
+            // // else (somehow they are using an invalid affiliate code)
+            // else {
 
-                // start equivalent outflow to owner (program owner's wallet)
-                newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
+            //     // start equivalent outflow to owner (program owner's wallet)
+            //     newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
 
-            }
-
-            // With newFlowToOwner to owner calculated based on presence of affiliate or not, create/update flow to owner
-            if (currentFlowToOwner == 0) {
-                // console.log("Erratic Affiliate Code | Create | Equivalent outflow to owner");
-                newCtx = _createFlow(_ap.owner,newFlowToOwner,supertoken,newCtx);
-            } else {
-                // console.log("Erratic Affiliate Code | Update | Equivalent outflow to owner");
-                newCtx = _updateFlow(_ap.owner,newFlowToOwner,supertoken,newCtx);
-            }
+            // }
                 
+        }
+        // // else they aren't using an affiliate code, you're just redirecting an equivalent flow to the owner
+        // else {
+
+        //     // start equivalent outflow to owner (program owner's wallet)
+        //     newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
+
+        // }
+
+        // With newFlowToOwner to owner calculated amongst above if-elses, create/update flow to owner
+        if (currentFlowToOwner == 0) {
+            newCtx = _createFlow(_ap.owner,newFlowToOwner,supertoken,newCtx);
+        } else {
+            newCtx = _updateFlow(_ap.owner,newFlowToOwner,supertoken,newCtx);
         }
 
         // update a mapping of subscriber => SubscriberProfile.inflowRate
