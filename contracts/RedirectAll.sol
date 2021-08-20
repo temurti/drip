@@ -105,22 +105,8 @@ contract RedirectAll is SuperAppBase {
                 }
 
             } 
-            // // else (somehow they are using an invalid affiliate code)
-            // else {
-
-            //     // start equivalent outflow to owner (program owner's wallet)
-            //     newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
-
-            // }
                 
         }
-        // // else they aren't using an affiliate code, you're just redirecting an equivalent flow to the owner
-        // else {
-
-        //     // start equivalent outflow to owner (program owner's wallet)
-        //     newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
-
-        // }
 
         // With newFlowToOwner to owner calculated amongst above if-elses, create/update flow to owner
         if (currentFlowToOwner == 0) {
@@ -154,7 +140,7 @@ contract RedirectAll is SuperAppBase {
         int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate[supertoken];
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
-        int96 newFlowToOwner;        
+        int96 newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;  
 
         // if the affiliate address is not empty
         if (affiliate != address(0)) {
@@ -173,11 +159,6 @@ contract RedirectAll is SuperAppBase {
                 newCtx = _updateFlow(affiliate , newFlowToAffiliate , supertoken , newCtx);
             } 
 
-        }
-        // (else) if the affiliate address is empty
-        else {
-            // Calculate new flow to owner as currentFlowToOwner + changeInFlowSubscriber
-            newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;
         }
 
         // increase/decrease the current flowRate from this to owner (program owner's wallet) by [difference] amount in proportion to (1 - _ap.affiliatePortion) (revenue)
