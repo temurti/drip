@@ -130,7 +130,7 @@ contract RedirectAll is SuperAppBase {
         }
 
         // update a mapping of subscriber => SubscriberProfile.inflowRate
-        _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        _ap.subscribers[subscriber].inflowRate[supertoken] = newFlowFromSubscriber;
 
     }
 
@@ -151,7 +151,7 @@ contract RedirectAll is SuperAppBase {
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(supertoken, address(this), _ap.owner);
 
         // Get the [difference] between new flowRate from subscriber and old flowRate from subscriber (Get old flowRate from subscriber in subscriber => SubscriberProfile.inflowRate mapping)
-        int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate;
+        int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate[supertoken];
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
         int96 newFlowToOwner;        
@@ -188,7 +188,7 @@ contract RedirectAll is SuperAppBase {
         }
     
         // update a mapping of subscriber => SubscriberProfile.inflowRate
-        _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        _ap.subscribers[subscriber].inflowRate[supertoken] = newFlowFromSubscriber;
 
     }
 

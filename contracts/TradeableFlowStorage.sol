@@ -15,9 +15,10 @@ library TradeableFlowStorage  {
 
    // Subscriber's details
   struct SubscriberProfile {
-    ISuperToken subscriberAcceptedToken;                 // the super token the subscriber is paying with 
-    int96 inflowRate;                                    // how much subscriber is streaming into the app
+    // ISuperToken subscriberAcceptedToken;                 // the super token the subscriber is paying with 
+    // int96 inflowRate;                                    // how much subscriber is streaming into the app
     uint256 tokenId;                                     // the tokenId representing the affiliate from which the subscriber was referred
+    mapping(ISuperToken => int96) inflowRate;            // for a certain token, how much is the subscriber streaming into the app        
   }
 
   struct AffiliateProgram {                              // An affiliate progarm generate when TradeableCashflow is deployed

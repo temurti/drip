@@ -586,12 +586,12 @@ describe("TradeableFlow", function () {
                 await app.mint("BlueWhale", {from:alice})
 
                 // Upgrade all of Alice and Bob's DAI
-                await upgrade([alice],token_directory["fDAI"]["supertoken"]);
-                await upgrade([bob],token_directory["fDAI"]["supertoken"]);
-                await upgrade([carol],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol],token_directory["fUSDC"]["supertoken"]);
 
                 // Give App a little DAIx so it doesn't get mad over deposit allowance
                 await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
 
                 let aliceEncodedUserData = web3.eth.abi.encodeParameter('string',"BlueWhale");
 
@@ -607,6 +607,14 @@ describe("TradeableFlow", function () {
                     userData:     aliceEncodedUserData
                 });
 
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                    sender:       alice,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     aliceEncodedUserData
+                });
+
                 // Alice should have a netflow of -8000
                 await logUsers(userList)
 
@@ -614,6 +622,14 @@ describe("TradeableFlow", function () {
 
                 await sf.cfa.createFlow({
                     superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     aliceEncodedUserData
+                });
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
                     sender:       bob,
                     receiver:     user_directory.app,
                     flowRate:     "10000",
@@ -651,6 +667,20 @@ describe("TradeableFlow", function () {
                     flowRate: "5000"
                 });
 
+                await sf.cfa.updateFlow({
+                    superToken: token_directory["fUSDC"]["supertoken"].address,
+                    sender: alice,
+                    receiver: user_directory.app,
+                    flowRate: "20000"
+                });
+
+                await sf.cfa.updateFlow({
+                    superToken: token_directory["fUSDC"]["supertoken"].address,
+                    sender: bob,
+                    receiver: user_directory.app,
+                    flowRate: "5000"
+                });
+
                 // Bob is paying out -5000
                 // Bob is receiving 20% of Alice's 20000, so +4000
                 // Bob is receiving 20% of his own 5000, so +1000
@@ -661,6 +691,13 @@ describe("TradeableFlow", function () {
 
                 await sf.cfa.deleteFlow({
                     superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender:     bob,
+                    receiver:   user_directory.app,
+                    by:         bob
+                });
+
+                await sf.cfa.deleteFlow({
+                    superToken: token_directory["fUSDC"]["supertoken"].address,
                     sender:     bob,
                     receiver:   user_directory.app,
                     by:         bob
