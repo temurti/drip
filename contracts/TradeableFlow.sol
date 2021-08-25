@@ -2,24 +2,31 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-// import "hardhat/console.sol";
-
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 
+// NOTE: We do not use Ownable. The Ownable contract makes ownership mutable. Ownership is expected to 
+//       remain fixed for the program as the owner address is the one receiving the revenue.
+//       Changing the owner would cause serious issues with users creating/updating their flows
+
+// TODO: Make sure that the token being put in for acceptedTokenStarter is in fact a Super Token
+//       In testnet deployment, making an acceptedToken a non-super token broke the NFT transfer
+// TODO: Get affiliate from tokenID function
+// TODO: Get if token is valid for payment
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
   event NewAffiliateLink(uint tokenId, address affiliate);      // Emitted when a new affiliate link is created
 
-  address public owner;                                   // Public owner address so it's easy to see (not totally necessary)
+  address public owner;                                   // Public owner address for visibility
   address public ERC20MintRestrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 public ERC20MintRestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor but with changeSettings()
+  uint256 public ERC20MintRestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but with changeSettings()
 
   constructor (
     address _owner,
@@ -58,7 +65,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");               // Shouldn't be minting affiliate NFTs to contract deployer
-    require(_ap.referralCodes[tokenURI] == false,"!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(_ap.referralCodes[tokenURI] == false, "!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -124,7 +131,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     return _ap.subscribers[subscriber].tokenId;
   }
 
-  function getAffiliateForSubscriber(address subscriber) external view returns (address) {
+  function getAffiliateForSubscriber(
+    address subscriber
+  ) external view returns (address) {
     return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
   }
 

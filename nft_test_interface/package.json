@@ -1,0 +1,17 @@
+{
+  "name": "nft_test_interface",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/network": "^0.4.3",
+    "create-react-app": "^4.0.3",
+    "react-bootstrap": "^1.6.1"
+  }
+}

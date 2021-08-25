@@ -141,8 +141,8 @@ describe("TradeableFlow", function () {
             sf.host.address,
             sf.agreements.cfa.address,
             token_directory['fDAI']['supertoken'].address,      // SuperToken accepted by app
-            uwl.address,                                // ERC20Restrict token
-            2000                                        // Affiliate Portion (20%)
+            uwl.address,                                        // ERC20Restrict token
+            200000000000                                          // Affiliate Portion (20%)
         );
 
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
@@ -213,12 +213,12 @@ describe("TradeableFlow", function () {
     }
 
     async function appStatus() {
-        const isApp = await sf.host.isApp(u.app.address);
-        const isJailed = await sf.host.isAppJailed(app.address);
+        const isApp = await sf.host.isApp(user_directory.app.address);
+        const isJailed = await sf.host.isAppJailed(user_directory.app.address);
         !isApp && console.error("App is not an App");
         isJailed && console.error("app is Jailed");
-        await checkTokenBalance(u.app,daix);
-        await checkOwner();
+        // await checkTokenBalance(u.app,daix);
+        // await checkOwner();
     }
 
     async function checkOwner() {
@@ -248,18 +248,18 @@ describe("TradeableFlow", function () {
 
     // TODO: edge cases 
     //    - multi-NFT cases
-    //    - Transfering pre-cashflow NFTs cashflows
-    //    - Testing the subscriber switching payment tokens
-    //    - test that someone can't mint an NFT with the same URI as another one to prevent affiliate flows from being stolen
-
+    //    - Transfering MULTIPLE pre-cashflow NFTs
+   
     describe("sending flows", async function () {
 
         let switchBoard = {
             "NFT Testing":false,
+            "transferring pre-cashflow NFT":false,
+            "subscriber switching payment tokens":true,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": false,
             "_createOutflow w/ aff, 1 subscribers, NFT transfer": false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
-            "affiliate being a subscriber as well":true
+            "affiliate being a subscriber as well":false
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -279,6 +279,66 @@ describe("TradeableFlow", function () {
 
         }
 
+        if (switchBoard["transferring pre-cashflow NFT"]) {
+            it("transferring pre-cashflow NFT", async () => {
+                    
+            // SET UP
+                const { alice , bob , emma , carol , dan , admin } = user_directory
+                userList = [alice , bob , emma , carol , dan , admin]
+
+                // Give Bob 10000 $UWL and an affiliate NFT
+                await uwl.transfer(bob,10000, {from:alice})
+                await app.mint("BlueWhale", {from:bob})
+
+                // Upgrade all of Alice, Carol, and Bob's DAI
+                await upgrade([alice,bob,carol],token_directory["fDAI"]["supertoken"])
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let affiliateCode1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+            // PART 2
+                console.log("=== PART 1: Bob transfer affiliate NFT to Carol ===")
+
+                await app.transferFrom(
+                    bob, 
+                    carol, 
+                    1, 
+                    {from:bob}
+                );
+
+                await logUsers(userList);
+
+            // PART 2
+                console.log("=== PART 2: Carol transfer affiliate NFT to Alice ===")
+
+                await app.transferFrom(
+                    carol, 
+                    alice, 
+                    1, 
+                    {from:carol}
+                );
+
+                await logUsers(userList);
+
+            // PART 3
+                console.log("=== PART 3: Bob opens flow into super app with the NFT's affiliate code===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateCode1});
+
+                // Bob is the subscriber, should be -10K
+                // Alice is the affiliate, should be +2K
+                await logUsers(userList);
+
+            })
+        }
+
         if (switchBoard["_updateOutflow w/ 2 aff, 3 subs (increase then decrease)"]) {
 
             it("Testing _updateOutflow increase/decrease with multiple affiliates and subscribers", async () => {
@@ -289,8 +349,7 @@ describe("TradeableFlow", function () {
                 // Mint Bob and Carol 10000 $UWL and an affiliate NFT
                 await uwl.transfer(carol,10000, {from:alice})
                 await uwl.transfer(dan,10000, {from:alice})
-                await checkTokenBalance(carol,uwl)
-                await checkTokenBalance(dan,uwl)
+
                 await app.mint("BlueWhale", {from:carol})
                 await app.mint("KillerWhale", {from:dan})
 
@@ -704,6 +763,66 @@ describe("TradeableFlow", function () {
                 });
 
                 await logUsers(userList);
+
+            });
+        
+        }
+
+        if (switchBoard["subscriber switching payment tokens"]) {
+
+            it("subscriber switching payment tokens", async () => {
+            // SET UP
+                const { alice , bob , carol , admin } = user_directory
+                userList = [alice , bob , carol , admin]
+
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("BlueWhale", {from:alice})
+
+                // Upgrade all of Alice and Bob's DAI
+                await upgrade([alice,bob,carol],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol],token_directory["fUSDC"]["supertoken"]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+                console.log('=== PART 1: Bob opens up a DAI stream to the app with the affiliate code ===')
+                
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1
+                });
+
+                await logUsers(userList)
+
+                console.log(`=== PART 2: Bob cancels his DAI stream ===`)
+
+                await sf.cfa.deleteFlow({
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender:     bob,
+                    receiver:   user_directory.app,
+                    by:         bob
+                });
+
+                await logUsers(userList)
+
+                console.log(`=== PART 3: Bob opens a USDC stream (no affiliate code) ===`)
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     web3.eth.abi.encodeParameter('string',"")
+                });
+
+
+                await logUsers(userList)
 
             });
         

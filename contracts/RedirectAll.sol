@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
-
 import {
     ISuperfluid,
     ISuperToken,
@@ -88,10 +86,10 @@ contract RedirectAll is SuperAppBase {
             if (affiliate != address(0)) {
 
                 // increase the old flowRate to affiliate by new flowRate amount in proportion to _ap.affiliatePortion
-                int96 newFlowToAffiliate = currentFlowToAffiliate + ( newFlowFromSubscriber * _ap.affiliatePortion) / 10000;
+                int96 newFlowToAffiliate = currentFlowToAffiliate + ( newFlowFromSubscriber * _ap.affiliatePortion) / 1000000000000;
 
                 // capture the increased flowRate from this to owner (program owner's wallet) by new flowRate amount in proportion to (1 - _ap.affiliatePortion) (revenue).
-                newFlowToOwner = currentFlowToOwner + ( newFlowFromSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
+                newFlowToOwner = currentFlowToOwner + ( newFlowFromSubscriber * (1000000000000 - _ap.affiliatePortion) ) / 1000000000000;
 
                 // update a mapping of subscriber => SubscriberProfile.tokenId 
                 _ap.subscribers[subscriber].tokenId = tokenId;
@@ -149,8 +147,8 @@ contract RedirectAll is SuperAppBase {
             (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
 
             // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion added to current flow rate
-            newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (10000 - _ap.affiliatePortion) ) / 10000;
-            int96 newFlowToAffiliate = currentFlowToAffiliate + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 10000;
+            newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (1000000000000 - _ap.affiliatePortion) ) / 1000000000000;
+            int96 newFlowToAffiliate = currentFlowToAffiliate + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 1000000000000;
 
             // increase/decrease the old flowRate to affiliate by [difference] amount in proportion to _ap.affiliatePortion - delete if zero
             if (newFlowToAffiliate == 0) {
