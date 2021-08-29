@@ -108,3 +108,17 @@
         //     }
 
         // }
+
+//=============================== 8/28/2021 ===============================
+    // TODO: handle a rogue affiliate that decides to cancel his income stream
+    //       what if when the user tries to cancel their flow coming from the super app we just start a new one?
+    //       a user has jurisdiction over flows they send, but the app is free to create and delete outgoing flows as it pleases
+    function _updateOutflow(bytes calldata ctx, ISuperToken supertoken) internal returns (bytes memory newCtx) {
+        newCtx = ctx;
+
+        // TODO: how do we prove that it's an affiliate who's cancelling his/her flow
+            // Get that it's a delete flow selector
+            // See that flow from this to msgSender is now zero (not conclusive. could be an affiliate who doesn't have income yet who's also a subscriber cancelling his/her own stream to the app)
+            // IDEA: check that changeInFlowSubscriber is zero
+            //       if it's zero, that means that the current flow from the "subscriber" (really, affiliate) TO the super app is unchanged
+            //       and what's really going on is a delete flow of affiliate income from the app to the affiliate

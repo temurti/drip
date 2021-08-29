@@ -30,7 +30,7 @@ module.exports = {
     }
   },
   mocha: {
-    timeout: 500000
+    timeout: 500000000
   },
   networks: {
     // polygon: {

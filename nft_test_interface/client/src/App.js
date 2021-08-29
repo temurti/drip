@@ -27,6 +27,7 @@ class App extends Component {
     this.setNewAcceptableToken = this.setNewAcceptableToken.bind(this)
     this.getOwner = this.getOwner.bind(this)
     this.startFlow = this.startFlow.bind(this)
+    this.getAffiliateCodeFromTokenId = this.getAffiliateCodeFromTokenId.bind(this)
   }
 
   componentDidMount() {
@@ -120,7 +121,19 @@ class App extends Component {
       tokenAddress
     ).send({ from: this.state.account })
 
-    var tokenAddress = document.getElementById("tokenAddress").value
+  }
+
+  async getAffiliateCodeFromTokenId() {
+    var appInst = new this.state.web3.eth.Contract(tradeableFlowABI,appAddress)
+    var tokenId = document.getElementById("getTokenId").value
+
+
+    appInst.methods.tokenURI(tokenId).call(function(err, res){
+      let out = `URI for Token ${tokenId}: ${res}`
+      console.log(out)
+      document.getElementById("getTokenIdResult").innerHTML = out
+    });
+
   }
 
 
@@ -142,6 +155,10 @@ class App extends Component {
       userData:     affiliateCode
     });
 
+  }
+
+  async getAppNetFlow() {
+    
   }
 
   render() {
@@ -227,6 +244,24 @@ class App extends Component {
                 </select>
               </td>
               <td><button id="set-button" onClick={this.startFlow}>Start Flow</button></td>
+            </tr>
+          </table>
+
+          <br></br>
+
+          <table id = "get-uri">
+            <tr>
+              <th>Get URI from Token ID</th>
+            </tr>
+            <tr>
+              <td>Token ID</td>
+            </tr>
+            <tr>
+              <td><input type="number" id="getTokenId"/></td>
+              <td><button id="set-button" onClick={this.getAffiliateCodeFromTokenId}>Get</button></td>
+            </tr>
+            <tr>
+              <td id="getTokenIdResult"></td>
             </tr>
           </table>
 

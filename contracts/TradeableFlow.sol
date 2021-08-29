@@ -18,6 +18,8 @@ import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 //       In testnet deployment, making an acceptedToken a non-super token broke the NFT transfer
 // TODO: Get affiliate from tokenID function
 // TODO: Get if token is valid for payment
+// TODO: Error vector: what if a subscriber pays with one affiliate code for DAIx and starts another stream with USDCx
+//       That would screw up _ap.subscribers[subscriber].tokenId. You need to enforce the same tokenId
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
@@ -65,7 +67,8 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");               // Shouldn't be minting affiliate NFTs to contract deployer
-    require(_ap.referralCodes[tokenURI] == false, "!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(_ap.referralcodeToToken[tokenURI] == 0, "!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") )); // We don't want to be minting an affiliate NFT with now referral code
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -121,6 +124,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   function setNewAcceptedToken(
     ISuperToken supertoken
   ) external isOwner {
+    // Makeshift solution - if the address provided is not a super token, this will error out
+    address underlying = supertoken.getUnderlyingToken();
+
     _ap.acceptedTokensList.push(supertoken);
     _ap.acceptedTokens[supertoken] = true;
   }
@@ -143,6 +149,10 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   function getERC20MintRestrict() external view returns (address) {
     return ERC20MintRestrict;
+  }
+
+  function getAffiliateFromTokenId(uint256 tokenId) external view returns (address) {
+    return _ap.tokenToAffiliate[tokenId];
   }
 
 }

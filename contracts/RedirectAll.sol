@@ -25,7 +25,7 @@ contract RedirectAll is SuperAppBase {
     using TradeableFlowStorage for TradeableFlowStorage.AffiliateProgram;
     TradeableFlowStorage.AffiliateProgram internal _ap;
 
-    event ReceiverChanged(address receiver, uint tokenId);    // Emitted when the token is transfered and receiver is changed
+    event ReceiverChanged(address receiver, uint tokenId);    // TODO: Emitted when the token is transfered and receiver is changed
 
     constructor(
         ISuperfluid host,
@@ -57,15 +57,20 @@ contract RedirectAll is SuperAppBase {
     function _createOutflow(bytes calldata ctx, ISuperToken supertoken) internal returns (bytes memory newCtx) {
         newCtx = ctx;
 
-        // Get user data from context (affiliate code) - because of this, the createFlow must be done with userData specified or it will revert
-        string memory affCode = abi.decode(_ap.host.decodeCtx(ctx).userData, (string));
-
         // Get new flowRate from subscriber (ctx.msgSender) to this (subscriber inflow)
         address subscriber = _ap.host.decodeCtx(ctx).msgSender;
+
+        // require that a subscriber isn't starting a flow with a different super token than what they currently use (if they already have one)
+        require(_ap.subscribers[subscriber].inflowRate[supertoken] == 0,"!token");
+        
+        // Get new flowRate from subscriber to this (subscriber inflow)
         (,int96 newFlowFromSubscriber,,) = _ap.cfa.getFlow(supertoken, subscriber, address(this));
         
         // Get current flowRate from this to owner (revenue) from lastFlowRateToOwner in storage (not necessary, just get current, this is something updated in callback, doesn't occur before this function is called. Current will suffice)
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(supertoken, address(this), _ap.owner);
+
+                // Get user data from context (affiliate code) - because of this, the createFlow must be done with userData specified or it will revert
+        string memory affCode = abi.decode(_ap.host.decodeCtx(ctx).userData, (string));
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount of newFlowFromSubscriber)
         // We are initially setting it up equal to currentFlow + newFlow as if there was no affiliate. 
@@ -82,7 +87,7 @@ contract RedirectAll is SuperAppBase {
             // Get old flowRate to [affiliate] in affiliate => outflow mapping
             (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
 
-            // if the affiliate address is not empty
+            // if the affiliate address is not empty (so it's a valid referral code)
             if (affiliate != address(0)) {
 
                 // increase the old flowRate to affiliate by new flowRate amount in proportion to _ap.affiliatePortion
@@ -105,7 +110,6 @@ contract RedirectAll is SuperAppBase {
             } 
                 
         }
-
         // With newFlowToOwner to owner calculated amongst above if-elses, create/update flow to owner
         if (currentFlowToOwner == 0) {
             newCtx = _createFlow(_ap.owner,newFlowToOwner,supertoken,newCtx);
@@ -138,11 +142,10 @@ contract RedirectAll is SuperAppBase {
         int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate[supertoken];
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
-        int96 newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;  
+        int96 newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;
 
         // if the affiliate address is not empty
-        if (affiliate != address(0)) {
-
+        if (affiliate != address(0) && changeInFlowSubscriber != 0) {
             // Get current flow to affiliate
             (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
 
@@ -158,14 +161,28 @@ contract RedirectAll is SuperAppBase {
             } 
 
         }
+        // Guard against rogue beneficiaries: affiliates + owner
+        // If the changeInFlowSubscriber is zero, it must mean that the subscriber flow hasn't changed and it's the affiliate/owner being an idiot and cancelling his/her income stream
+        else if (changeInFlowSubscriber == 0) {
 
-        // increase/decrease the current flowRate from this to owner (program owner's wallet) by [difference] amount in proportion to (1 - _ap.affiliatePortion) (revenue)
-        if (newFlowToOwner == 0) {
-            newCtx = _deleteFlow(address(this) , _ap.owner , supertoken , newCtx);
-        } else {
-            newCtx = _updateFlow(_ap.owner , newFlowToOwner , supertoken , newCtx);
+            // get the net flow for the application. This will get the outward flow that was lost from the affiliate/owner cancelling
+            int96 netFlow = _ap.cfa.getNetFlow(supertoken,address(this));
+
+            // recreating the flow back to the affiliate/owner. So basically, we're just restarting the flow they deleted because we're not allowed to prevent them from deleting
+            // "subscriber" here is really the rogue affiliate/owner
+            newCtx = _createFlow(subscriber,netFlow,supertoken,newCtx);
+
         }
-    
+
+        // increase/decrease the current flowRate from this to owner (program owner's wallet) by changeInFlowSubscriber amount in proportion to (1 - _ap.affiliatePortion) (revenue)
+        // if the new newFlowToOwner is zero but it's because the owner has deleted their flow, we don't want to cancel to protect the restarting of the stream to the owner in the elif section above
+        if (changeInFlowSubscriber != 0) {
+            if (newFlowToOwner == 0) {
+                newCtx = _deleteFlow(address(this) , _ap.owner , supertoken , newCtx);
+            } else {
+                newCtx = _updateFlow(_ap.owner , newFlowToOwner , supertoken , newCtx);
+            }
+        }
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate[supertoken] = newFlowFromSubscriber;
 
@@ -221,7 +238,6 @@ contract RedirectAll is SuperAppBase {
      * SuperApp callbacks
      *************************************************************************/
 
-    // This will run whenever an agreement is created, even that from this contract outwards. That's an issue
     function afterAgreementCreated(
         ISuperToken _superToken,
         address _agreementClass,

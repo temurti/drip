@@ -25,10 +25,9 @@ library TradeableFlowStorage  {
     address owner;                                       // Program owner
     ISuperfluid host;                                    // Superfluid host contract
     IConstantFlowAgreementV1 cfa;                        // The stored constant flow agreement class address
-    // ISuperToken acceptedToken;                        // The accepted token (e.g. DAIx)
     ISuperToken[] acceptedTokensList;                    // List of all accepted super tokens (iterateable so for changeReceiver, we can iterate over and change flows)
     mapping(ISuperToken => bool) acceptedTokens;         // Contains all super tokens permitted as payment for subscription service as a mapping
-    mapping(string => bool) referralCodes;               // Contains all used affiliate codes so that there is no repeating and flows can't be stolen
+    // mapping(string => bool) referralCodes;               // Contains all used affiliate codes so that there is no repeating and flows can't be stolen (unnessary given referralcodeToToken)
     mapping(string => uint256) referralcodeToToken;      // Maps referral code to tokenIds
     mapping(uint256 => address) tokenToAffiliate;        // Maps token ID to affiliate address
     mapping(address => SubscriberProfile) subscribers;   // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
