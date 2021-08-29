@@ -36,7 +36,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     string memory _symbol,
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
-    ISuperToken acceptedTokenStarter,
+    // ISuperToken acceptedTokenStarter,
     address _ERC20MintRestrict,
     int96 _affiliatePortion
   )
@@ -44,7 +44,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     RedirectAll (
       host,
       cfa,
-      acceptedTokenStarter,
+      // acceptedTokenStarter,
       _owner
      )
   { 
@@ -153,6 +153,14 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   function getAffiliateFromTokenId(uint256 tokenId) external view returns (address) {
     return _ap.tokenToAffiliate[tokenId];
+  }
+
+  function getSusbcriberPaymentToken(address subscriber) external view returns (address) {
+    return address(_ap.subscribers[subscriber].paymentToken);
+  }
+
+  function getAcceptedTokensList() external view returns (ISuperToken[] memory) {
+    return _ap.acceptedTokensList;
   }
 
 }

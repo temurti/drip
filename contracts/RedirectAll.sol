@@ -30,7 +30,7 @@ contract RedirectAll is SuperAppBase {
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
-        ISuperToken acceptedTokensStarter,
+        // ISuperToken acceptedTokensStarter,
         address owner) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
@@ -40,8 +40,8 @@ contract RedirectAll is SuperAppBase {
 
         _ap.host = host;
         _ap.cfa = cfa;
-        _ap.acceptedTokensList.push(acceptedTokensStarter);
-        _ap.acceptedTokens[acceptedTokensStarter] = true;
+        // _ap.acceptedTokensList.push(acceptedTokensStarter);
+        // _ap.acceptedTokens[acceptedTokensStarter] = true;
         _ap.owner = owner;
 
         uint256 configWord =
@@ -61,7 +61,9 @@ contract RedirectAll is SuperAppBase {
         address subscriber = _ap.host.decodeCtx(ctx).msgSender;
 
         // require that a subscriber isn't starting a flow with a different super token than what they currently use (if they already have one)
-        require(_ap.subscribers[subscriber].inflowRate[supertoken] == 0,"!token");
+        if (_ap.subscribers[subscriber].paymentToken != ISuperToken(address(0))) {
+            require(_ap.subscribers[subscriber].paymentToken == supertoken,"!token");
+        }
         
         // Get new flowRate from subscriber to this (subscriber inflow)
         (,int96 newFlowFromSubscriber,,) = _ap.cfa.getFlow(supertoken, subscriber, address(this));
@@ -118,7 +120,9 @@ contract RedirectAll is SuperAppBase {
         }
 
         // update a mapping of subscriber => SubscriberProfile.inflowRate
-        _ap.subscribers[subscriber].inflowRate[supertoken] = newFlowFromSubscriber;
+        _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        // update the subscribers super token for payment
+        _ap.subscribers[subscriber].paymentToken = supertoken;
 
     }
 
@@ -139,7 +143,7 @@ contract RedirectAll is SuperAppBase {
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(supertoken, address(this), _ap.owner);
 
         // Get the [difference] between new flowRate from subscriber and old flowRate from subscriber (Get old flowRate from subscriber in subscriber => SubscriberProfile.inflowRate mapping)
-        int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate[supertoken];
+        int96 changeInFlowSubscriber = newFlowFromSubscriber - _ap.subscribers[subscriber].inflowRate;
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
         int96 newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;
@@ -183,8 +187,18 @@ contract RedirectAll is SuperAppBase {
                 newCtx = _updateFlow(_ap.owner , newFlowToOwner , supertoken , newCtx);
             }
         }
+
         // update a mapping of subscriber => SubscriberProfile.inflowRate
-        _ap.subscribers[subscriber].inflowRate[supertoken] = newFlowFromSubscriber;
+        _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
+        // if the subscriber is deleting his/her flow, delete their profile
+        if (newFlowFromSubscriber == 0) {
+            delete _ap.subscribers[subscriber];
+        }
+        // if (newFlowFromSubscriber == 0) {
+        //     // remove the supertoken from their profile in storage
+        //     _ap.subscribers[subscriber].paymentToken = ISuperToken(address(0));
+        //     // delete affiliate token
+        // }
 
     }
 

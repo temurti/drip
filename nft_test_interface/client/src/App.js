@@ -121,6 +121,7 @@ class App extends Component {
       tokenAddress
     ).send({ from: this.state.account })
 
+    document.getElementById("tokenAddress").value = ""
   }
 
   async getAffiliateCodeFromTokenId() {

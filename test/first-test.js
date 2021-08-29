@@ -140,7 +140,7 @@ describe("TradeableFlow", function () {
             "TF",
             sf.host.address,
             sf.agreements.cfa.address,
-            token_directory['fDAI']['supertoken'].address,      // SuperToken accepted by app
+            // token_directory['fDAI']['supertoken'].address,      // SuperToken accepted by app
             uwl.address,                                        // ERC20Restrict token
             200000000000                                          // Affiliate Portion (20%)
         );
@@ -148,6 +148,7 @@ describe("TradeableFlow", function () {
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // add fUSDCx as an acceptable supertoken
+        await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
         await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
 
         // Create Superfluid user for TradeableFlow contract
@@ -247,21 +248,21 @@ describe("TradeableFlow", function () {
     }
 
     // TODO: edge cases 
-    //    - multi-NFT cases
-    //    - Transfering MULTIPLE pre-cashflow NFTs
+    //    - starting a stream without initializing any payment tokens
    
     describe("sending flows", async function () {
 
         let switchBoard = {
             "NFT Testing":false,
             "transferring pre-cashflow NFT":false,
-            "subscriber switching payment tokens":true,
+            "subscriber switching payment tokens":false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": false,
             "_createOutflow w/ aff, 1 subscribers, NFT transfer": false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
             "affiliate being a subscriber as well":false,
-            "testing affiliate flow cancelling":false,
-            "testing setting acceptable token":false
+            "testing affiliate and owner flow cancelling":false,
+            "testing setting acceptable token":false,
+            "advanced multi-NFT case":true
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -384,22 +385,10 @@ describe("TradeableFlow", function () {
 
                 await logUsers(userList)
 
-                console.log(`=== PART 3: Bob opens a USDC stream (no affiliate code) ===`)
+                console.log(`=== PART 3: Bob opens a USDC stream (with affiliate code) ===`)
 
                 await sf.cfa.createFlow({
                     superToken:   token_directory["fUSDC"]["supertoken"].address, 
-                    sender:       bob,
-                    receiver:     user_directory.app,
-                    flowRate:     "10000",
-                    userData:     web3.eth.abi.encodeParameter('string',"")
-                });
-
-                await logUsers(userList)
-
-                console.log(`=== PART 4: Bob opens a DAI stream (with affiliate code) ===`)
-
-                await sf.cfa.createFlow({
-                    superToken:   token_directory["fDAI"]["supertoken"].address, 
                     sender:       bob,
                     receiver:     user_directory.app,
                     flowRate:     "10000",
@@ -407,6 +396,18 @@ describe("TradeableFlow", function () {
                 });
 
                 await logUsers(userList)
+
+                // console.log(`=== PART 4: Bob opens a DAI stream (with affiliate code) (should error) ===`)
+
+                // await sf.cfa.createFlow({
+                //     superToken:   token_directory["fDAI"]["supertoken"].address, 
+                //     sender:       bob,
+                //     receiver:     user_directory.app,
+                //     flowRate:     "10000",
+                //     userData:     web3.eth.abi.encodeParameter('string',"BlueWhale")
+                // });
+
+                // await logUsers(userList)
 
                 // PART 3
                 console.log("=== PART 5: Transfer NFT from Alice to Carol ===")
@@ -753,26 +754,26 @@ describe("TradeableFlow", function () {
                     userData:     aliceEncodedUserData
                 });
 
-                await sf.cfa.createFlow({
-                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
-                    sender:       alice,
-                    receiver:     user_directory.app,
-                    flowRate:     "10000",
-                    userData:     aliceEncodedUserData
-                });
+                // await sf.cfa.createFlow({
+                //     superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                //     sender:       alice,
+                //     receiver:     user_directory.app,
+                //     flowRate:     "10000",
+                //     userData:     aliceEncodedUserData
+                // });
 
                 // Alice should have a netflow of -8000
                 await logUsers(userList)
 
                 console.log(`=== PART 2: Bob opens a stream with Alice's referral`)
 
-                await sf.cfa.createFlow({
-                    superToken:   token_directory["fDAI"]["supertoken"].address, 
-                    sender:       bob,
-                    receiver:     user_directory.app,
-                    flowRate:     "10000",
-                    userData:     aliceEncodedUserData
-                });
+                // await sf.cfa.createFlow({
+                //     superToken:   token_directory["fDAI"]["supertoken"].address, 
+                //     sender:       bob,
+                //     receiver:     user_directory.app,
+                //     flowRate:     "10000",
+                //     userData:     aliceEncodedUserData
+                // });
 
                 await sf.cfa.createFlow({
                     superToken:   token_directory["fUSDC"]["supertoken"].address, 
@@ -806,19 +807,19 @@ describe("TradeableFlow", function () {
                     flowRate: "20000"
                 });
 
-                await sf.cfa.updateFlow({
-                    superToken: token_directory["fDAI"]["supertoken"].address,
-                    sender: bob,
-                    receiver: user_directory.app,
-                    flowRate: "5000"
-                });
+                // await sf.cfa.updateFlow({
+                //     superToken: token_directory["fDAI"]["supertoken"].address,
+                //     sender: bob,
+                //     receiver: user_directory.app,
+                //     flowRate: "5000"
+                // });
 
-                await sf.cfa.updateFlow({
-                    superToken: token_directory["fUSDC"]["supertoken"].address,
-                    sender: alice,
-                    receiver: user_directory.app,
-                    flowRate: "20000"
-                });
+                // await sf.cfa.updateFlow({
+                //     superToken: token_directory["fUSDC"]["supertoken"].address,
+                //     sender: alice,
+                //     receiver: user_directory.app,
+                //     flowRate: "20000"
+                // });
 
                 await sf.cfa.updateFlow({
                     superToken: token_directory["fUSDC"]["supertoken"].address,
@@ -835,12 +836,12 @@ describe("TradeableFlow", function () {
 
                 console.log(`=== PART 5: Bob cancels his stream`)
 
-                await sf.cfa.deleteFlow({
-                    superToken: token_directory["fDAI"]["supertoken"].address,
-                    sender:     bob,
-                    receiver:   user_directory.app,
-                    by:         bob
-                });
+                // await sf.cfa.deleteFlow({
+                //     superToken: token_directory["fDAI"]["supertoken"].address,
+                //     sender:     bob,
+                //     receiver:   user_directory.app,
+                //     by:         bob
+                // });
 
                 await sf.cfa.deleteFlow({
                     superToken: token_directory["fUSDC"]["supertoken"].address,
@@ -951,6 +952,165 @@ describe("TradeableFlow", function () {
                 console.log("=== PART 2: Setting regular token (fFRAX) for payment - should error out ===")
                 await app.setNewAcceptedToken(token_directory['fFRAX']['regulartoken'].address ,{from:user_directory.admin})
 
+
+            })
+
+        }
+
+        if (switchBoard["advanced multi-NFT case"]) {
+
+            it("advanced multi-NFT case", async () => {
+            // SET UP
+                const { alice , bob , emma , carol , dan , admin } = user_directory
+                userList = [alice , bob , emma , carol , dan , admin]
+                const rate = 0.0000001
+
+            // Mint Bob and Carol 10000 $UWL and an affiliate NFT
+                await uwl.transfer(carol,10000, {from:alice})
+                await uwl.transfer(dan,10000, {from:alice})
+                await checkTokenBalance(carol,uwl)
+                await checkTokenBalance(dan,uwl)
+                await app.mint("BlueWhale", {from:dan})
+                await app.mint("KillerWhale", {from:dan})
+                await app.mint("Penguin", {from:dan})
+
+            // Upgrade all of Alice, Carol, and Bob's DAI
+                await upgrade([alice,bob,carol,dan,emma],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol,dan,emma],token_directory["fUSDC"]["supertoken"]);
+
+            // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let BlueWhaleData = web3.eth.abi.encodeParameter('string',"BlueWhale");
+                let KillerWhaleData = web3.eth.abi.encodeParameter('string',"KillerWhale");
+                let PenguinData = web3.eth.abi.encodeParameter('string',"Penguin");
+
+                console.log("=== PART 1: Dan transfers KillerWhale and Penguin NFTs to Carol ===")
+
+                await app.transferFrom(
+                    dan, 
+                    carol, 
+                    2, 
+                    {from:dan}
+                );
+
+                await app.transferFrom(
+                    dan, 
+                    carol, 
+                    3, 
+                    {from:dan}
+                );
+
+                await logUsers(userList);
+
+
+                console.log("=== PART 2: Dan starts a DAI stream with his BlueWhale affiliate NFT ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       dan,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     BlueWhaleData
+                });
+
+                await logUsers(userList);
+
+                console.log("=== PART 3: Dan cancels his stream ===")
+
+                await sf.cfa.deleteFlow({
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender:     dan,
+                    receiver:   user_directory.app,
+                    by:         dan
+                });
+
+                await logUsers(userList);
+
+                console.log("=== PART 4: Dan starts a USDC stream with the KillerWhale affiliate NFT ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                    sender:       dan,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     KillerWhaleData
+                });
+
+                await logUsers(userList);
+
+                console.log("=== PART 5: Dan transfers the BlueWhale NFT to Carol ===")
+
+                await app.transferFrom(
+                    dan, 
+                    carol, 
+                    1, 
+                    {from:dan}
+                );
+
+                await logUsers(userList);
+
+                console.log("=== PART 6: Carol starts a DAI stream with her BlueWhale affiliate NFT ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       carol,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     BlueWhaleData
+                });
+
+                await logUsers(userList);
+
+                console.log("=== PART 7: Dan halves his stream ===")
+
+                await sf.cfa.updateFlow({
+                    superToken: token_directory["fUSDC"]["supertoken"].address,
+                    sender: dan,
+                    receiver: user_directory.app,
+                    flowRate: "5000"
+                });
+
+                await logUsers(userList);
+
+                console.log("=== PART 7: All NFTs transferred to Emma ===")
+
+                await app.transferFrom(
+                    carol, 
+                    emma, 
+                    1, 
+                    {from:carol}
+                );
+
+
+                await app.transferFrom(
+                    carol, 
+                    emma, 
+                    2, 
+                    {from:carol}
+                );
+
+                await app.transferFrom(
+                    carol, 
+                    emma, 
+                    3, 
+                    {from:carol}
+                );
+
+                await logUsers(userList);                
+
+                console.log("=== PART 8: Alice starts a USDC stream with Penguin affiliate NFT ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                    sender:       alice,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     PenguinData
+                });
+
+                await logUsers(userList);                
 
             })
 
