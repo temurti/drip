@@ -261,8 +261,9 @@ describe("TradeableFlow", function () {
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
             "affiliate being a subscriber as well":false,
             "testing affiliate and owner flow cancelling":false,
-            "testing setting acceptable token":false,
-            "advanced multi-NFT case":true
+            "testing setting acceptable token":true,
+            "advanced multi-NFT case":false,
+            "restrict owner flow":false
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -944,8 +945,32 @@ describe("TradeableFlow", function () {
 
             it("testing setting acceptable token", async () => {
 
+                // SET UP
                 const { alice , bob , carol , admin } = user_directory
-                
+                userList = [alice , bob , carol , admin]
+
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("BlueWhale", {from:alice})
+
+                // Upgrade all of Alice and Bob's DAI
+                await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+                // console.log('=== PART 1: Testing opening up a DAI stream to the app with the affiliate code without having set an acceptable token (should fail) ===')
+
+                // await sf.cfa.createFlow({
+                //     superToken:   token_directory["fDAI"]["supertoken"].address, 
+                //     sender:       alice,
+                //     receiver:     user_directory.app,
+                //     flowRate:     "10000",
+                //     userData:     affiliateUserData1});
+    
+                // await logUsers(userList);
+                                
                 console.log("=== PART 1: Setting a valid super token (fFRAXx) for payment ===")
                 await app.setNewAcceptedToken(token_directory['fFRAX']['supertoken'].address ,{from:user_directory.admin})
 
@@ -1114,6 +1139,40 @@ describe("TradeableFlow", function () {
 
             })
 
+        }
+
+        if (switchBoard["restrict owner flow"]) {
+
+            it("restrict owner flow", async () => {
+            // SET UP
+                const { alice , bob , carol , admin } = user_directory
+                userList = [alice , bob , carol , admin]
+
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("BlueWhale", {from:alice})
+
+                // Upgrade all of Alice and Bob's DAI
+                await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol,admin],token_directory["fUSDC"]["supertoken"]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+                console.log('=== PART 1: Owner opens up a DAI stream to the app with the affiliate code (should fail) ===')
+                
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       admin,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1});
+    
+                await logUsers(userList);
+
+            })
         }
 
     });

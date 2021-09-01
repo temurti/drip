@@ -30,18 +30,14 @@ contract RedirectAll is SuperAppBase {
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
-        // ISuperToken acceptedTokensStarter,
         address owner) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
-        // require(address(acceptedToken) != address(0), "acceptedToken");
         require(address(owner) != address(0), "owner");
         require(!host.isApp(ISuperApp(owner)), "owner SA"); // owner cannot be a super app
 
         _ap.host = host;
         _ap.cfa = cfa;
-        // _ap.acceptedTokensList.push(acceptedTokensStarter);
-        // _ap.acceptedTokens[acceptedTokensStarter] = true;
         _ap.owner = owner;
 
         uint256 configWord =
@@ -64,6 +60,9 @@ contract RedirectAll is SuperAppBase {
         if (_ap.subscribers[subscriber].paymentToken != ISuperToken(address(0))) {
             require(_ap.subscribers[subscriber].paymentToken == supertoken,"!token");
         }
+
+        // require that an owner can't start a flow to their own app
+        require(subscriber != _ap.owner,"!own");
         
         // Get new flowRate from subscriber to this (subscriber inflow)
         (,int96 newFlowFromSubscriber,,) = _ap.cfa.getFlow(supertoken, subscriber, address(this));
@@ -265,7 +264,7 @@ contract RedirectAll is SuperAppBase {
         onlyHost
         returns (bytes memory newCtx)
     {
-        // return _updateOutflow(_ctx);
+        require(msg.sender != _ap.owner, "!own"); // owner shouldn't be starting streams
         return _createOutflow(_ctx, _superToken);
     }
 

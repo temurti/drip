@@ -14,12 +14,7 @@ import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 //       remain fixed for the program as the owner address is the one receiving the revenue.
 //       Changing the owner would cause serious issues with users creating/updating their flows
 
-// TODO: Make sure that the token being put in for acceptedTokenStarter is in fact a Super Token
-//       In testnet deployment, making an acceptedToken a non-super token broke the NFT transfer
-// TODO: Get affiliate from tokenID function
-// TODO: Get if token is valid for payment
-// TODO: Error vector: what if a subscriber pays with one affiliate code for DAIx and starts another stream with USDCx
-//       That would screw up _ap.subscribers[subscriber].tokenId. You need to enforce the same tokenId
+// Enforce that the owner cannot start a flow to the superapp
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
@@ -36,7 +31,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     string memory _symbol,
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
-    // ISuperToken acceptedTokenStarter,
     address _ERC20MintRestrict,
     int96 _affiliatePortion
   )
@@ -44,7 +38,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     RedirectAll (
       host,
       cfa,
-      // acceptedTokenStarter,
       _owner
      )
   { 
