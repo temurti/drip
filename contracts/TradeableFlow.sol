@@ -85,6 +85,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
   
   /// @notice Token transfer callback - redirects existing flows to new affiliate
+  /// @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance
   /// @param from original affiliate
   /// @param to new affiliate
   /// @param tokenId token ID of affiliate NFT being transferred
