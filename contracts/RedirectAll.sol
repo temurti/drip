@@ -25,7 +25,8 @@ contract RedirectAll is SuperAppBase {
     using TradeableFlowStorage for TradeableFlowStorage.AffiliateProgram;
     TradeableFlowStorage.AffiliateProgram internal _ap;
 
-    event ReceiverChanged(address receiver, uint tokenId);    // TODO: Emitted when the token is transfered and receiver is changed
+    event flowCreated(address subscriber, int96 flowRate); 
+    event flowUpdated(address subscriber, int96 flowRate);
 
     constructor(
         ISuperfluid host,
@@ -70,7 +71,7 @@ contract RedirectAll is SuperAppBase {
         // Get current flowRate from this to owner (revenue) from lastFlowRateToOwner in storage (not necessary, just get current, this is something updated in callback, doesn't occur before this function is called. Current will suffice)
         (,int96 currentFlowToOwner,,) = _ap.cfa.getFlow(supertoken, address(this), _ap.owner);
 
-                // Get user data from context (affiliate code) - because of this, the createFlow must be done with userData specified or it will revert
+        // Get user data from context (affiliate code) - because of this, the createFlow must be done with userData specified or it will revert
         string memory affCode = abi.decode(_ap.host.decodeCtx(ctx).userData, (string));
 
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount of newFlowFromSubscriber)
@@ -122,6 +123,8 @@ contract RedirectAll is SuperAppBase {
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
         // update the subscribers super token for payment
         _ap.subscribers[subscriber].paymentToken = supertoken;
+
+        emit flowCreated(subscriber , newFlowFromSubscriber);
 
     }
 
@@ -193,11 +196,8 @@ contract RedirectAll is SuperAppBase {
         if (newFlowFromSubscriber == 0) {
             delete _ap.subscribers[subscriber];
         }
-        // if (newFlowFromSubscriber == 0) {
-        //     // remove the supertoken from their profile in storage
-        //     _ap.subscribers[subscriber].paymentToken = ISuperToken(address(0));
-        //     // delete affiliate token
-        // }
+
+        emit flowUpdated(subscriber, newFlowFromSubscriber);
 
     }
 
@@ -265,6 +265,7 @@ contract RedirectAll is SuperAppBase {
         returns (bytes memory newCtx)
     {
         require(msg.sender != _ap.owner, "!own"); // owner shouldn't be starting streams
+        require(_ap.locked == false,"locked");
         return _createOutflow(_ctx, _superToken);
     }
 
@@ -281,6 +282,7 @@ contract RedirectAll is SuperAppBase {
         onlyHost
         returns (bytes memory newCtx)
     {
+        require(_ap.locked == false,"locked");
         return _updateOutflow(_ctx, _superToken);
     }
 
@@ -418,6 +420,27 @@ contract RedirectAll is SuperAppBase {
                 from,
                 to,
                 new bytes(0) // placeholder
+            ),
+            "0x"
+        );
+    }
+
+    /**************************************************************************
+     * SuperApp emergency functionality
+     *************************************************************************/
+
+    function _emergencyCloseStream(address streamer, ISuperToken supertoken) public {
+        // Allows anyone to close any stream to app if the app has been locked
+        // In the event of emergency, you can cancel incoming streams and let the app crash into insolvency to cancel outgoing streams to owner/affiliates
+        require(_ap.locked == true, "!locked");
+        _ap.host.callAgreement(
+            _ap.cfa,
+            abi.encodeWithSelector(
+                _ap.cfa.deleteFlow.selector,
+                supertoken,    
+                streamer,      // from
+                address(this), // to (app)
+                new bytes(0)   // placeholder
             ),
             "0x"
         );

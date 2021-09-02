@@ -261,9 +261,10 @@ describe("TradeableFlow", function () {
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
             "affiliate being a subscriber as well":false,
             "testing affiliate and owner flow cancelling":false,
-            "testing setting acceptable token":true,
+            "testing setting acceptable token":false,
             "advanced multi-NFT case":false,
-            "restrict owner flow":false
+            "restrict owner flow":false,
+            "locking app":true
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -1161,6 +1162,7 @@ describe("TradeableFlow", function () {
 
                 let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
 
+                // comment out the setNewAcceptedToken lines in beforeEach
                 console.log('=== PART 1: Owner opens up a DAI stream to the app with the affiliate code (should fail) ===')
                 
                 await sf.cfa.createFlow({
@@ -1171,6 +1173,83 @@ describe("TradeableFlow", function () {
                     userData:     affiliateUserData1});
     
                 await logUsers(userList);
+
+            })
+        }
+
+        if (switchBoard["locking app"]) {
+
+            it("locking app", async () => {
+            // SET UP
+                const { alice , bob , carol , admin } = user_directory
+                userList = [alice , bob , carol , admin]
+
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("BlueWhale", {from:alice})
+
+                // Upgrade all of Alice and Bob's DAI
+                await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
+                await upgrade([alice,bob,carol,admin],token_directory["fUSDC"]["supertoken"]);
+
+                // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
+
+                console.log('=== PART 1: Alice opens up a DAI stream to the app with the affiliate code ===')
+                
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       alice,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1});
+    
+                await logUsers(userList);
+
+                console.log('=== PART 2: lock the app  ===')
+
+                await app.setLock(true, {from:user_directory.admin} )
+
+                // console.log('=== PART 3: Bob tries to open stream to app (should fail)  ===')
+
+                // await sf.cfa.createFlow({
+                //     superToken:   token_directory["fDAI"]["supertoken"].address, 
+                //     sender:       bob,
+                //     receiver:     user_directory.app,
+                //     flowRate:     "10000",
+                //     userData:     affiliateUserData1});
+    
+                // await logUsers(userList);
+
+                console.log('=== PART 3: Alice tries to update stream to app (should fail)  ===')
+
+                await sf.cfa.updateFlow({
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender: alice,
+                    receiver: user_directory.app,
+                    flowRate: "10001"
+                });
+
+                // console.log('=== PART 2: Alice cancels her flow to the app (should succeed)  ===')
+
+                // await sf.cfa.deleteFlow({
+                //     superToken: token_directory["fDAI"]["supertoken"].address,
+                //     sender:     alice,
+                //     receiver:   user_directory.app,
+                //     by:         alice
+                // });
+
+                // await logUsers(userList);
+
+                // console.log('=== PART 3: owner cancel Alice flow  ===')
+
+                // await app._emergencyCloseStream(alice,token_directory["fDAI"]["supertoken"].address,{from:user_directory.admin})
+
+                // await logUsers(userList);
+
+
 
             })
         }

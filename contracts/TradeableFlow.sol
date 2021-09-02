@@ -104,6 +104,11 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       return super.tokenURI(tokenId);
   }
 
+  // @dev In the event of a bug, cancellation, etc., the setLock can be used to lock the app and block incoming flows and allow current flows to be cancelled or unlock if things are okay
+  function setLock(bool lockStatus) public isOwner {
+    _ap.locked = lockStatus;
+  }
+
   // @notice You can just set ERC20RestrictBalanceRequirement to zero if you don't want there to be a token restriction
   function setERC20MintRestriction(
     uint256 newERC20MintRestrictBalanceRequirement,
