@@ -26,7 +26,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   address public owner;                                         // Public owner address for visibility
   address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but with changeSettings()
+  uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
 
   constructor (
     address _owner,
