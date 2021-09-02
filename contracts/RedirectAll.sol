@@ -103,7 +103,6 @@ contract RedirectAll is SuperAppBase {
 
                 // Start/update flow to affiliate
                 if (currentFlowToAffiliate == 0) {
-
                     newCtx = _createFlow(affiliate,newFlowToAffiliate,supertoken,newCtx);
                 } else {
                     newCtx = _updateFlow(affiliate,newFlowToAffiliate,supertoken,newCtx);

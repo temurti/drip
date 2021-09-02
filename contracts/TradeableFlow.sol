@@ -14,16 +14,15 @@ import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 //       remain fixed for the program as the owner address is the one receiving the revenue.
 //       Changing the owner would cause serious issues with users creating/updating their flows
 
-// Enforce that the owner cannot start a flow to the superapp
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
   event NewAffiliateLink(uint tokenId, address affiliate);      // Emitted when a new affiliate link is created
 
-  address public owner;                                   // Public owner address for visibility
-  address public ERC20MintRestrict;                       // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 public ERC20MintRestrictBalanceRequirement;     // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but with changeSettings()
+  address public owner;                                         // Public owner address for visibility
+  address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
+  uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but with changeSettings()
 
   constructor (
     address _owner,
@@ -59,9 +58,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   // @dev Potential affiliate will call this function if they want an NFT for themself
   // @notice on dApp, when minting, tokenURI will be a randomly generated aquatic mammal word concatenation 
   function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
-    require(msg.sender != _ap.owner, "!own");               // Shouldn't be minting affiliate NFTs to contract deployer
-    require(_ap.referralcodeToToken[tokenURI] == 0, "!uri");   // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
-    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") )); // We don't want to be minting an affiliate NFT with now referral code
+    require(msg.sender != _ap.owner, "!own");                         // Shouldn't be minting affiliate NFTs to contract deployer
+    require(_ap.referralcodeToToken[tokenURI] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") ));  // We don't want to be minting an affiliate NFT with now referral code
 
     tokenIds.increment();
     tokenId = tokenIds.current();

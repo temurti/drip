@@ -248,7 +248,7 @@ describe("TradeableFlow", function () {
     }
 
     // TODO: edge cases 
-    //    - starting a stream without initializing any payment tokens
+    //    - locking then unlocking the app
    
     describe("sending flows", async function () {
 
