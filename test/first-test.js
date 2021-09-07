@@ -262,9 +262,9 @@ describe("TradeableFlow", function () {
             "affiliate being a subscriber as well":false,
             "testing affiliate and owner flow cancelling":false,
             "testing setting acceptable token":false,
-            "advanced multi-NFT case":false,
+            "advanced multi-NFT case":true,
             "restrict owner flow":false,
-            "locking app":true
+            "locking app":false
         }
 
         if (switchBoard["NFT Testing"]) {

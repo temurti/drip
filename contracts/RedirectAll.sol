@@ -27,8 +27,8 @@ contract RedirectAll is SuperAppBase {
     using TradeableFlowStorage for TradeableFlowStorage.AffiliateProgram;
     TradeableFlowStorage.AffiliateProgram internal _ap;
 
-    event flowCreated(address subscriber, int96 flowRate); 
-    event flowUpdated(address subscriber, int96 flowRate);
+    event flowCreated(address indexed subscriber, int96 flowRate); 
+    event flowUpdated(address indexed subscriber, int96 flowRate);
 
     constructor(
         ISuperfluid host,
@@ -98,9 +98,11 @@ contract RedirectAll is SuperAppBase {
             // If the affiliate address is not empty (so it's a valid referral code)
             if (affiliate != address(0)) {
                 // Increase the old flowRate to affiliate by new flowRate amount in proportion to _ap.affiliatePortion
+                // TODO
                 int96 newFlowToAffiliate = currentFlowToAffiliate + ( newFlowFromSubscriber * _ap.affiliatePortion) / 1000000000000;
                 // Capture the increased flowRate from this to owner (program owner's wallet) by new flowRate amount in proportion to (1 - _ap.affiliatePortion) (revenue).
                 newFlowToOwner = currentFlowToOwner + ( newFlowFromSubscriber * (1000000000000 - _ap.affiliatePortion) ) / 1000000000000;
+                // newFlowOwner = susbcriber flow less newFlowToAffiliate. Just grab what's left
                 // Update a mapping of subscriber => SubscriberProfile.tokenId 
                 _ap.subscribers[subscriber].tokenId = tokenId;
                 // Start/update flow to affiliate
@@ -140,6 +142,7 @@ contract RedirectAll is SuperAppBase {
         newCtx = ctx;
 
         // Get subscriber from msgSender
+        // TODO: fix this
         address subscriber = _ap.host.decodeCtx(ctx).msgSender;
 
         // Get associated tokenId in subscriber => subscribers.tokenId mapping amd then get [affiliate] address associated with tokenId
@@ -162,6 +165,7 @@ contract RedirectAll is SuperAppBase {
             // Get current flow to affiliate
             (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
             // Calculate new flows to affiliate and owner as proportions of [difference] dictated by _ap.affiliatePortion added to current flow rate
+            // TODO
             newFlowToOwner = currentFlowToOwner + ( changeInFlowSubscriber * (1000000000000 - _ap.affiliatePortion) ) / 1000000000000;
             int96 newFlowToAffiliate = currentFlowToAffiliate + ( changeInFlowSubscriber *  _ap.affiliatePortion) / 1000000000000;
             // increase/decrease the old flowRate to affiliate by [difference] amount in proportion to _ap.affiliatePortion - delete if zero
@@ -174,7 +178,7 @@ contract RedirectAll is SuperAppBase {
         }
 
         // Guard against rogue beneficiaries: affiliates + owner
-        // If the changeInFlowSubscriber is zero, it must mean that the subscriber flow hasn't changed and it's the affiliate/owner being an idiot and cancelling his/her income stream
+        // If the changeInFlowSubscriber is zero, it must mean that the subscriber flow hasn't changed and it's the affiliate/owner trying to cancel his/her income stream
         else if (changeInFlowSubscriber == 0) {
             // get the net flow for the application. This will get the outward flow that was lost from the affiliate/owner cancelling
             int96 netFlow = _ap.cfa.getNetFlow(supertoken,address(this));
@@ -227,6 +231,7 @@ contract RedirectAll is SuperAppBase {
             // if there's already an outflow for the tokenId:
             if (oldAffiliateOutflow != 0) {
                 // delete stream to old affiliate
+                // TODO: If you have multiple flows, you will end up deleting the entire stream! Need to track this and prevent this from happening
                 _deleteFlow(address(this), oldAffiliate, _ap.acceptedTokensList[i]);
 
                 // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
@@ -288,7 +293,7 @@ contract RedirectAll is SuperAppBase {
         returns (bytes memory newCtx)
     {
         require(msg.sender != _ap.owner, "!own");
-        require(_ap.locked == false,"locked");
+        require(!_ap.locked,"locked");
         return _createOutflow(_ctx, _superToken);
     }
 
@@ -316,7 +321,7 @@ contract RedirectAll is SuperAppBase {
         onlyHost
         returns (bytes memory newCtx)
     {
-        require(_ap.locked == false,"locked");
+        require(!_ap.locked,"locked");
         return _updateOutflow(_ctx, _superToken);
     }
 
@@ -483,8 +488,11 @@ contract RedirectAll is SuperAppBase {
      *
      * - app is under locked status
      */
-    function _emergencyCloseStream(address streamer, ISuperToken supertoken) public { 
-        require(_ap.locked == true, "!locked");
+    // TODO: Close all at the same time
+    // TODO: balance sweep - if money is locked in contract
+    // TODO: make external
+    function _emergencyCloseStream(address streamer, ISuperToken supertoken) external { 
+        require(_ap.locked, "!locked");
         _ap.host.callAgreement(
             _ap.cfa,
             abi.encodeWithSelector(

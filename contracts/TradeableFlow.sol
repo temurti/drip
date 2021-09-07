@@ -22,7 +22,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
-  event NewAffiliateLink(uint tokenId, address affiliate);      // Emitted when a new affiliate link is created
+  event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
 
   address public owner;                                         // Public owner address for visibility
   address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
@@ -50,12 +50,14 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   modifier hasEnoughERC20Restrict() {
-    require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); // You do not own enough of the designated ERC20 token to mint an affiliate NFT
+    // Must own enough of the designated ERC20 token to mint an affiliate NFT
+    require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
     _;
   }
 
   modifier isOwner() {
-    require(msg.sender == _ap.owner,"!own"); // Shouldn't be minting affiliate NFTs to contract deployer
+    // Shouldn't be minting affiliate NFTs to program owner
+    require(msg.sender == _ap.owner,"!own"); 
     _;
   }
 
@@ -64,10 +66,10 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @param tokenURI URI, which also serves as affiliate code
   @return tokenId Token ID of minted affiliate NFT
   */
-  function mint(string memory tokenURI) public hasEnoughERC20Restrict returns (uint256 tokenId) {
+  function mint(string memory tokenURI) external hasEnoughERC20Restrict returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");                         // Shouldn't be minting affiliate NFTs to contract deployer
     require(_ap.referralcodeToToken[tokenURI] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
-    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") ));  // We don't want to be minting an affiliate NFT with now referral code
+    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") ));  // We don't want to be minting an affiliate NFT with blank referral code
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -93,6 +95,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @param to new affiliate
   @param tokenId token ID of affiliate NFT being transferred
   */
+  // TODO: protect against NFT from being transferred to the owner
   function _beforeTokenTransfer(
     address from,
     address to,
@@ -123,7 +126,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @dev Setting to true blocks incoming streams and allows anyone to cancel incoming streams
   @param lockStatus the new desired lock status of contract
   */
-  function setLock(bool lockStatus) public isOwner {
+  function setLock(bool lockStatus) external isOwner {
     _ap.locked = lockStatus;
   }
 
@@ -207,7 +210,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @param subscriber Address of subscriber
   @return Address of super token the subscriber is paying with
   */
-  function getSusbcriberPaymentToken(address subscriber) external view returns (address) {
+  function getSubscriberPaymentToken(address subscriber) external view returns (address) {
     return address(_ap.subscribers[subscriber].paymentToken);
   }
 

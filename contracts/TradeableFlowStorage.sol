@@ -17,10 +17,11 @@ library TradeableFlowStorage  {
   struct SubscriberProfile {
     ISuperToken paymentToken;                            // token subscriber is paying with
     uint256 tokenId;                                     // the tokenId representing the affiliate from which the subscriber was referred
-    int96 inflowRate;                                     // how much is the subscriber streaming into the app. used for diff tracking in _updateOutflow
+    int96 inflowRate;                                    // how much is the subscriber streaming into the app. used for diff tracking in _updateOutflow
   }
 
-  struct AffiliateProgram {                              // An affiliate progarm generate when TradeableCashflow is deployed
+  // An affiliate program generated when TradeableFlow is deployed
+  struct AffiliateProgram {                              
     address owner;                                       // Program owner
     ISuperfluid host;                                    // Superfluid host contract
     IConstantFlowAgreementV1 cfa;                        // The stored constant flow agreement class address
