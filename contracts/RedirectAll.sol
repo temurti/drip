@@ -8,7 +8,7 @@ import {
     ISuperApp,
     ISuperAgreement,
     SuperAppDefinitions
-} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";//"@superfluid-finance/ethereum-monorepo/packages/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 
 import {
     IConstantFlowAgreementV1
@@ -157,7 +157,7 @@ contract RedirectAll is SuperAppBase {
         // Set up newFlowToOwner variable, value will be captured in if/else (if affiliated, change by 1-affiliate portion, if not affiliate, change by whole amount)
         int96 newFlowToOwner = currentFlowToOwner + changeInFlowSubscriber;
 
-        // if the affiliate address is not empty
+        // if the affiliate address is not empty and it's not the affiliate/owner being an idiot and cancelling his/her income stream
         if (affiliate != address(0) && changeInFlowSubscriber != 0) {
             // Get current flow to affiliate
             (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
@@ -196,7 +196,7 @@ contract RedirectAll is SuperAppBase {
 
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
-        
+
         // if the subscriber is deleting his/her flow, delete their profile
         if (newFlowFromSubscriber == 0) {
             delete _ap.subscribers[subscriber];
