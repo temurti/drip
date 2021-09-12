@@ -30,6 +30,7 @@ describe("TradeableFlow", function () {
 
     const names = ["Admin", "Alice", "Bob", "Carol", "Dan", "Emma", "Frank"];
     const tokens = ["fDAI","fUSDC","fTUSD","fFRAX"]
+    const affCodes = ["BlueWhale","KillerWhale","Penguin","Narwhal","Oyster","WhaleShark","GreatWhite","Beluga","PilotWhale","Bottlenose"]
 
     let sf;
     let dai;
@@ -140,8 +141,7 @@ describe("TradeableFlow", function () {
             "TF",
             sf.host.address,
             sf.agreements.cfa.address,
-            // token_directory['fDAI']['supertoken'].address,      // SuperToken accepted by app
-            uwl.address,                                        // ERC20Restrict token
+            uwl.address,                                          // ERC20Restrict token
             200000000000                                          // Affiliate Portion (20%)
         );
 
@@ -183,9 +183,10 @@ describe("TradeableFlow", function () {
         for (let i = 0; i < tokens.length; ++i) {
             header += `|\t${tokens[i]}x\t`
         }
-        header += `|\tAFFILIATE`
+        header += `|\tAFFILIATE\t|`
+        header += `\tTOKEN ID`
         console.log(header)
-        console.log("--------------------------------------------------------------------------------------")
+        console.log("-------------------------------------------------------------------------------------------------------------------")
         for (let i = 0; i < userList.length; i++) {
             row = `${alias_directory[userList[i]]}\t`
             // console.log("Address",userList[i])
@@ -194,10 +195,11 @@ describe("TradeableFlow", function () {
                 var tempUser = sf.user({ address: userList[i], token: token_directory[tokens[j]]['supertoken'].address });
                 row += `|\t${(await tempUser.details()).cfa.netFlow}\t`
             }
-            row += `|\t${alias_directory[( await app.getAffiliateForSubscriber( userList[i] ) )]}`
+            row += `|\t${alias_directory[( await app.getAffiliateForSubscriber( userList[i] ) )]}\t`
+            row += `|\t${( await app.getAffiliateTokenIdForSubscriber( userList[i] ) )}`
             console.log(row)
         }
-        console.log("--------------------------------------------------------------------------------------")
+        console.log("-------------------------------------------------------------------------------------------------------------------")
         bottomline = `App\t`
         for (let i = 0; i < tokens.length; ++i) {
             let tempUser = sf.user({ address: user_directory.app, token: token_directory[tokens[i]]['supertoken'].address });
@@ -205,7 +207,7 @@ describe("TradeableFlow", function () {
         }
         bottomline += "|"
         console.log(bottomline)
-        console.log("======================================================================================")
+        console.log("===================================================================================================================")
     }
 
     async function hasFlows(user) {
@@ -264,7 +266,8 @@ describe("TradeableFlow", function () {
             "testing setting acceptable token":false,
             "advanced multi-NFT case":true,
             "restrict owner flow":false,
-            "locking app":false
+            "locking app":false,
+            "balance sweep":false
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -437,8 +440,8 @@ describe("TradeableFlow", function () {
                 userList = [alice , bob , emma , carol , dan , admin]
 
                 // Mint Bob and Carol 10000 $UWL and an affiliate NFT
-                await uwl.transfer(carol,10000, {from:alice})
-                await uwl.transfer(dan,10000, {from:alice})
+                // await uwl.transfer(carol,10000, {from:alice})
+                // await uwl.transfer(dan,10000, {from:alice})
 
                 await app.mint("BlueWhale", {from:carol})
                 await app.mint("KillerWhale", {from:dan})
@@ -992,10 +995,6 @@ describe("TradeableFlow", function () {
                 const rate = 0.0000001
 
             // Mint Bob and Carol 10000 $UWL and an affiliate NFT
-                await uwl.transfer(carol,10000, {from:alice})
-                await uwl.transfer(dan,10000, {from:alice})
-                await checkTokenBalance(carol,uwl)
-                await checkTokenBalance(dan,uwl)
                 await app.mint("BlueWhale", {from:dan})
                 await app.mint("KillerWhale", {from:dan})
                 await app.mint("Penguin", {from:dan})
@@ -1124,7 +1123,7 @@ describe("TradeableFlow", function () {
                     {from:carol}
                 );
 
-                await logUsers(userList);                
+                await logUsers(userList);  
 
                 console.log("=== PART 8: Alice starts a USDC stream with Penguin affiliate NFT ===")
 
@@ -1136,7 +1135,18 @@ describe("TradeableFlow", function () {
                     userData:     PenguinData
                 });
 
-                await logUsers(userList);                
+                await logUsers(userList); 
+                
+                console.log("=== PART 7: Emma transfers Penguin NFT to Bob ===")
+
+                await app.transferFrom(
+                    emma, 
+                    bob, 
+                    3, 
+                    {from:emma}
+                );
+
+                await logUsers(userList); 
 
             })
 
@@ -1254,5 +1264,70 @@ describe("TradeableFlow", function () {
             })
         }
 
+        if (switchBoard["balance sweep"]) {
+
+            it("balance sweep", async () => {
+
+                // SET UP
+                const { alice , bob , emma , carol , dan , admin } = user_directory
+                userList = [alice , bob , emma , carol , dan , admin]
+
+            // Upgrade all of Alice, Carol, and Bob's DAI
+                await upgrade([alice,bob,carol,dan,emma],token_directory["fDAI"]["supertoken"])
+
+            // Give App a little DAIx so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice})
+
+                console.log("Before sweep")
+                await checkTokenBalance(user_directory.app,token_directory["fDAI"]["supertoken"])
+
+                await app.setLock(true, {from:user_directory.admin} )
+
+                await app.balanceSweep(token_directory["fDAI"]["supertoken"].address,{from:admin})
+
+                console.log("After sweep")
+                await checkTokenBalance(user_directory.app,token_directory["fDAI"]["supertoken"])
+
+
+            })
+        }
+
+
+        // random tests
+
+        // dictionary of users
+            // user
+            // |_ list of cashflow tokens
+            // |_ current flow (so if it's zero, you do create instead of update)
+    
+
+        // Fixed:
+            // select 10 different users
+            // upgrade all their tokens
+
+        // Variable
+            // randomly select a user
+                // Option 1: NFT Transfer
+                    // if the user has a cashflow token(s)
+                        // randomly select one
+                        // randomly transfer it to another user
+                // Option 2: Create stream (no aff code)
+                    // (only an option if current flow is zero)
+                        // randomly start streaming at a rate between 1 and 100000
+                // Option 3: Create stream (w/ aff code)
+                    // (only an option if current flow is zero)
+                        // randomly start streaming at a rate between 1 and 100000 w/ a user code from affCodes
+                // Option 4: Update stream
+                    // (only an option if current flow ISN'T zero)
+                        // randomly modify streaming to a rate between 1 and 100000
+                // Option 5: Cancel stream
+                    // (only an option if current flow ISN'T zero)
+                        // cancel stream
+            // log users
+
+
+
+                
+        
     });
 });

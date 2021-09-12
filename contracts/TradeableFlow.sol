@@ -55,12 +55,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     _;
   }
 
-  modifier isOwner() {
-    // Shouldn't be minting affiliate NFTs to program owner
-    require(msg.sender == _ap.owner,"!own"); 
-    _;
-  }
-
   /**
   @notice Mints the affiliate NFT
   @param tokenURI URI, which also serves as affiliate code
@@ -90,17 +84,17 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   
   /**
   @notice Token transfer callback - redirects existing flows to new affiliate
-  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance
+  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't to transferred to owner
   @param from original affiliate
   @param to new affiliate
   @param tokenId token ID of affiliate NFT being transferred
   */
-  // TODO: protect against NFT from being transferred to the owner
   function _beforeTokenTransfer(
     address from,
     address to,
     uint256 tokenId
   ) internal override {
+    require(to != _ap.owner,"!own");
     if (from != address(0)) {
       _changeReceiver(from, to, tokenId);
     }
@@ -126,30 +120,30 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @dev Setting to true blocks incoming streams and allows anyone to cancel incoming streams
   @param lockStatus the new desired lock status of contract
   */
-  function setLock(bool lockStatus) external isOwner {
+  function setLock(bool lockStatus) external onlyOwner {
     _ap.locked = lockStatus;
   }
 
   /**
-  @notice Allows owner to set minting restriction based on possession of specified balance of an ERC20 token
+  @notice Allows owner to set minting restriction based on possession of specified balance of an ERC20 token.
   @param newERC20MintRestrictBalanceRequirement balance of ERC20 token needed to mint affiliate NFT
   @param newERC20MintRestrict ERC20 token required for minting
   */
   function setERC20MintRestriction(
     uint256 newERC20MintRestrictBalanceRequirement,
     address newERC20MintRestrict
-  ) external isOwner {
+  ) external onlyOwner {
     ERC20MintRestrict = newERC20MintRestrict;
     ERC20MintRestrictBalanceRequirement = newERC20MintRestrictBalanceRequirement;
   }
 
   /**
-  @notice Allows owner to set new super token acceptable for payment in affiliate program
+  @notice Allows owner to set new super token acceptable for payment in affiliate program. Tokens CANNOT be unset as acceptable
   @param supertoken New super token to be accepted for payment
   */
   function setNewAcceptedToken(
     ISuperToken supertoken
-  ) external isOwner {
+  ) external onlyOwner {
     // Makeshift solution - if the address provided is not a super token, this will error out
     address underlying = supertoken.getUnderlyingToken();
 
@@ -162,9 +156,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @param subscriber Address of subscriber whose associated affiliate NFT is to be discovered
   @return token ID of affiliate NFT associated with the subscriber
   */
-  function getAffiliateTokenIdForSubscriber(
-    address subscriber
-  ) external view returns (uint256) {
+  function getAffiliateTokenIdForSubscriber(address subscriber) external view returns (uint256) {
     return _ap.subscribers[subscriber].tokenId;
   }
 
@@ -174,9 +166,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @param subscriber Address of subscriber whose associated affiliate is to be discovered
   @return address of affiliate associated with the subscriber
   */
-  function getAffiliateForSubscriber(
-    address subscriber
-  ) external view returns (address) {
+  function getAffiliateForSubscriber(address subscriber) external view returns (address) {
     return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
   }
 
@@ -220,6 +210,14 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   */
   function getAcceptedTokensList() external view returns (ISuperToken[] memory) {
     return _ap.acceptedTokensList;
+  }
+
+  /**
+  @notice Gets outflow associated with a cashflow NFT
+  @return outflow rate
+  */
+  function getOutflowFromTokenId(uint256 tokenId, ISuperToken supertoken) external view returns (int96) {
+    return _ap.tokenToPaymentTokentoOutflowRate[tokenId][supertoken];
   }
 
 }
