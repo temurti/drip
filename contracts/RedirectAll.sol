@@ -543,10 +543,10 @@ contract RedirectAll is SuperAppBase {
      * - app is under locked status
      * - only owner can balance sweep
      */
-    function balanceSweep(ISuperToken token) external onlyOwner {
+    function balanceSweep(ISuperToken token, uint256 amount) external onlyOwner {
         require(_ap.locked, "!locked");
 
-        token.transfer(_ap.owner, token.balanceOf(address(this)));
+        token.transfer(_ap.owner, amount);
 
     }
 

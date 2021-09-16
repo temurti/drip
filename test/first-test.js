@@ -29,8 +29,9 @@ describe("TradeableFlow", function () {
     };
 
     const names = ["Admin", "Alice", "Bob", "Carol", "Dan", "Emma", "Frank"];
-    const tokens = ["fDAI","fUSDC","fTUSD","fFRAX"]
-    const affCodes = ["BlueWhale","KillerWhale","Penguin","Narwhal","Oyster","WhaleShark","GreatWhite","Beluga","PilotWhale","Bottlenose"]
+    const tokens = ["fDAI","fUSDC","fTUSD"]
+    let affCodes = ["BlueWhale","KillerWhale","Penguin","Narwhal","Oyster","WhaleShark","GreatWhite","Beluga","PilotWhale","Bottlenose"]
+    let affCodesInUse = []
 
     let sf;
     let dai;
@@ -39,6 +40,8 @@ describe("TradeableFlow", function () {
     const token_directory = {}  // token => regulartoken, supertoken
     const user_directory = {};  // alias => sf.user
     const alias_directory = {}; // address => alias
+
+    alias_directory[`0x0000000000000000000000000000000000000000`] = "-----"
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
@@ -150,6 +153,7 @@ describe("TradeableFlow", function () {
         // add fUSDCx as an acceptable supertoken
         await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
         await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
         // Create Superfluid user for TradeableFlow contract
         user_directory.app = app.address
@@ -183,23 +187,21 @@ describe("TradeableFlow", function () {
         for (let i = 0; i < tokens.length; ++i) {
             header += `|\t${tokens[i]}x\t`
         }
-        header += `|\tAFFILIATE\t|`
+        header += `|\tAFFL.\t|`
         header += `\tTOKEN ID`
         console.log(header)
-        console.log("-------------------------------------------------------------------------------------------------------------------")
+        console.log("----------------------------------------------------------------------------------------------")
         for (let i = 0; i < userList.length; i++) {
             row = `${alias_directory[userList[i]]}\t`
-            // console.log("Address",userList[i])
-            // console.log("Alias",alias_directory[userList[i]])
             for (let j = 0; j < tokens.length; ++j) {
                 var tempUser = sf.user({ address: userList[i], token: token_directory[tokens[j]]['supertoken'].address });
                 row += `|\t${(await tempUser.details()).cfa.netFlow}\t`
             }
             row += `|\t${alias_directory[( await app.getAffiliateForSubscriber( userList[i] ) )]}\t`
-            row += `|\t${( await app.getAffiliateTokenIdForSubscriber( userList[i] ) )}`
+            row += `|\t${( await app.getAffiliateTokenIdForSubscriber( userList[i] ) ).toString()}\t`
             console.log(row)
         }
-        console.log("-------------------------------------------------------------------------------------------------------------------")
+        console.log("----------------------------------------------------------------------------------------------")
         bottomline = `App\t`
         for (let i = 0; i < tokens.length; ++i) {
             let tempUser = sf.user({ address: user_directory.app, token: token_directory[tokens[i]]['supertoken'].address });
@@ -207,7 +209,7 @@ describe("TradeableFlow", function () {
         }
         bottomline += "|"
         console.log(bottomline)
-        console.log("===================================================================================================================")
+        console.log("==============================================================================================")
     }
 
     async function hasFlows(user) {
@@ -249,8 +251,208 @@ describe("TradeableFlow", function () {
         return true;
     }
 
-    // TODO: edge cases 
-    //    - locking then unlocking the app
+    async function randomAction(userList,userStatuses) {
+        let moddedUserStatuses = userStatuses
+        // Admin is at first index, gets cut out here
+        validUsers = userList.slice(1)
+        const randomUser = validUsers[Math.floor(Math.random() * validUsers.length)];
+
+        // randomly select an new flow rate and token if update/create flow options are selected
+        let newFlow = Math.round(Math.floor(Math.random() * (1000000 - 1001 + 1) + 1001) / 1000)*1000
+        let randomPaymentSuperToken = tokens[Math.floor(Math.random() * tokens.length)]
+        if (userStatuses[randomUser]["paymentToken"] != null) {
+            randomPaymentSuperToken = userStatuses[randomUser]["paymentToken"]
+        }
+
+
+        const outflow = userStatuses[randomUser][randomPaymentSuperToken]
+        const nfts = userStatuses[randomUser]["tokens"]
+
+        // Option 1: NFT Transfer
+        // Option 2: NFT mint
+        // Option 3: Create stream (no aff code)
+        // Option 4: Create stream (w/ aff code)
+        // Option 5: Update stream
+        // Option 6: Cancel stream
+
+        let options = []
+        if (outflow != 0) {
+            // User already has outflows, we want to provide update and delete options
+            options = [5,6]
+        } else {
+            // Otherwise, provide create option
+            options = [3]
+            // if there are affiliate NFTs out then make creating a stream with one an option
+            if (affCodesInUse.length > 0) {
+                options.push(4)
+                options.push(4)
+                options.push(4)
+            }
+        }
+
+        // NOTE: Limiting number of NFTs possible for minting to amount of set codes to increase actiivty in other options
+        if (affCodesInUse.length <= affCodes.length) {
+            options.push(2)
+        }
+
+        if (nfts.length > 0) {
+            options.push(1)
+            options.push(1)
+        }
+
+        // randomly chose from available options
+        let randomChoice = options[Math.floor(Math.random() * options.length)]
+
+        // Some space
+        console.log()
+
+        // Option 1: NFT Transfer
+        if (randomChoice == 1) {
+            // Get all users that are not the user that's being operated on
+            availableUsers = validUsers.filter(user => user !== randomUser)
+            // Get random user to send NFT to
+            const randomDestinationUser = availableUsers[Math.floor(Math.random() * availableUsers.length)]
+            // If there are multiple NFTs held by randomUser, chose a random one (randomNFTForTransfer is the token id)
+            const randomNFTForTransfer = nfts[Math.floor(Math.random() * nfts.length)]
+
+            console.log(`=== ${alias_directory[randomUser]} transfers ${await app.tokenURI(randomNFTForTransfer)} NFT to ${alias_directory[randomDestinationUser]} ===`)
+            
+            await app.transferFrom(
+                randomUser, 
+                randomDestinationUser, 
+                randomNFTForTransfer, 
+                {from:randomUser}
+            );
+
+            // Update statuses
+
+            // Remove from randomUser's list
+            moddedUserStatuses[randomUser]["tokens"] = nfts.filter(token => token !== randomNFTForTransfer)
+            // Add to randomDestinationUser's list
+            moddedUserStatuses[randomDestinationUser]["tokens"].push(randomNFTForTransfer)
+            
+            await logUsers(userList)
+
+        }
+        // Option 2: NFT mint
+        else if (randomChoice == 2) {
+            // Get random user code
+            const randomNFTURI = affCodes[Math.floor(Math.random() * affCodes.length)]
+            // Remove user code from global available codes list
+            affCodes = affCodes.filter(code => code !== randomNFTURI)
+            // Add user code to global in use codes list
+            affCodesInUse.push(randomNFTURI)
+
+            console.log(`=== ${alias_directory[randomUser]} mints affiliate NFT with URI: ${randomNFTURI}`)
+
+            let tokenId = await app.mint(randomNFTURI, {from:randomUser})
+
+            console.log( "Token ID of Minted NFT:",parseInt(tokenId["logs"][0]["args"]["tokenId"].toString()) )
+
+            moddedUserStatuses[randomUser]["tokens"].push(parseInt(tokenId["logs"][0]["args"]["tokenId"].toString()))
+
+        }
+        // Option 3: Create stream (no aff code)
+        else if (randomChoice == 3) {
+
+            console.log(`=== ${alias_directory[randomUser]} starts a ${randomPaymentSuperToken} stream without referral ===`)
+
+            await sf.cfa.createFlow({
+                superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
+                sender:       randomUser,
+                receiver:     user_directory.app,
+                flowRate:     newFlow.toString(),
+                userData:     web3.eth.abi.encodeParameter('string',"")
+            });
+
+            moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
+            moddedUserStatuses[randomUser]["paymentToken"] = randomPaymentSuperToken
+
+            await logUsers(userList)
+
+        }
+        // Option 4: Create stream (w/ aff code)
+        else if (randomChoice == 4) {
+            // Randomly select in in-use code
+            const randAffCode = affCodesInUse[Math.floor(Math.random() * affCodesInUse.length)]
+
+            console.log(`=== ${alias_directory[randomUser]} starts a ${randomPaymentSuperToken} stream with referral ${randAffCode}===`)
+
+            await sf.cfa.createFlow({
+                superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
+                sender:       randomUser,
+                receiver:     user_directory.app,
+                flowRate:     newFlow.toString(),
+                userData:     web3.eth.abi.encodeParameter('string',randAffCode)
+            });
+
+            moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
+            moddedUserStatuses[randomUser]["paymentToken"] = randomPaymentSuperToken
+
+            await logUsers(userList)
+        }
+        // Option 5: Update stream
+        else if (randomChoice == 5) {
+
+            console.log(`=== ${alias_directory[randomUser]} updates their ${randomPaymentSuperToken} stream ===`)
+
+            await sf.cfa.updateFlow({
+                superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
+                sender:       randomUser,
+                receiver:     user_directory.app,
+                flowRate:     newFlow.toString(),
+            });
+
+            moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
+
+            await logUsers(userList)
+        }
+        // Option 6: Cancel stream
+        else if (randomChoice == 6) {
+
+            console.log(`=== ${alias_directory[randomUser]} cancels their ${randomPaymentSuperToken} stream ===`)
+
+            await sf.cfa.deleteFlow({
+                superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
+                sender:       randomUser,
+                receiver:     user_directory.app,
+                by:           randomUser
+            });
+
+            moddedUserStatuses[randomUser][randomPaymentSuperToken] = 0
+            moddedUserStatuses[randomUser]["paymentToken"] = null
+
+            await logUsers(userList)
+        }
+
+        return moddedUserStatuses
+
+        // Variable
+            // randomly select a user except admin
+                    // if the user has a cashflow token(s)
+                        // randomly select one of their cashflow tokens
+                        // randomly transfer it to another user
+                        // delete transfer token from user's list and add to new user's
+                // Option 2: NFT Mint
+                    // mint the user an NFT
+                // Option 3: Create stream (no aff code)
+                    // (only an option if current flow is zero)
+                        // randomly start streaming at a rate between 1 and 100000
+                        // update current flow
+                // Option 4: Create stream (w/ aff code)
+                    // (only an option if current flow is zero)
+                        // randomly start streaming at a rate between 1 and 100000 w/ a user code from affCodes
+                        // update current flow
+                // Option 5: Update stream
+                    // (only an option if current flow ISN'T zero)
+                        // randomly modify streaming to a rate between 1 and 100000
+                        // update current flow
+                // Option 6: Cancel stream
+                    // (only an option if current flow ISN'T zero)
+                        // cancel stream
+                        // update current flow
+            // log users
+    }
    
     describe("sending flows", async function () {
 
@@ -264,10 +466,12 @@ describe("TradeableFlow", function () {
             "affiliate being a subscriber as well":false,
             "testing affiliate and owner flow cancelling":false,
             "testing setting acceptable token":false,
-            "advanced multi-NFT case":true,
+            "advanced multi-NFT case":false,
             "restrict owner flow":false,
             "locking app":false,
-            "balance sweep":false
+            "balance sweep":true,
+            "random test":false,
+            "temp":false
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -1283,7 +1487,7 @@ describe("TradeableFlow", function () {
 
                 await app.setLock(true, {from:user_directory.admin} )
 
-                await app.balanceSweep(token_directory["fDAI"]["supertoken"].address,{from:admin})
+                await app.balanceSweep(token_directory["fDAI"]["supertoken"].address,1,{from:admin})
 
                 console.log("After sweep")
                 await checkTokenBalance(user_directory.app,token_directory["fDAI"]["supertoken"])
@@ -1292,9 +1496,126 @@ describe("TradeableFlow", function () {
             })
         }
 
+        if (switchBoard["random test"]) {
+            it("random test", async () => {
+                // Get all users
+                const { admin, alice, bob, carol, dan, emma, frank } = user_directory
+                userList = [admin, alice, bob, carol, dan, emma, frank] 
 
-        // random tests
+                // Upgrade all their tokens ["fDAI","fUSDC","fTUSD","fFRAX"]
+                await upgrade(userList,token_directory["fDAI"]["supertoken"]);
+                await upgrade(userList,token_directory["fUSDC"]["supertoken"]);
+                await upgrade(userList,token_directory["fTUSD"]["supertoken"]);
 
+
+                // Give App a little supertoken so it doesn't get mad over deposit allowance
+                await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
+                await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
+                await token_directory["fTUSD"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
+
+
+                // Make user tracking dictionary
+                let userStatuses = {}
+                for (var i = 0; i < userList.length; i++) {
+                    userStatuses[userList[i]] = {"tokens":[],"fDAI":0,"fUSDC":0,"fTUSD":0,"paymentToken":null}
+                }
+
+                for (var i = 0; i < 20; i++) {
+                    userStatuses = await randomAction(userList,userStatuses);
+                }
+            })
+        }
+
+        if (switchBoard["temp"]) {
+            it("temp", async () => {
+                // Get all users
+                const { admin, alice, bob, carol, dan, emma, frank } = user_directory
+                userList = [admin, alice, bob, carol, dan, emma, frank] 
+
+                // Upgrade all their tokens ["fDAI","fUSDC","fTUSD","fFRAX"]
+                // await upgrade(userList,token_directory["fDAI"]["supertoken"]);
+                // await upgrade(userList,token_directory["fUSDC"]["supertoken"]);
+                await upgrade(userList,token_directory["fTUSD"]["supertoken"]);
+
+
+                // Give App a little supertoken so it doesn't get mad over deposit allowance
+                // await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                // await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+                await token_directory["fTUSD"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
+
+                console.log("=== Carol starts a fTUSD stream without referral ===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fTUSD"]["supertoken"].address, 
+                    sender:       carol,
+                    receiver:     user_directory.app,
+                    flowRate:     "39000",
+                    userData:     web3.eth.abi.encodeParameter('string',"")
+                });
+
+                await logUsers(userList); 
+
+                console.log("=== Bob mints affiliate NFT with URI: Oyster")
+                
+                await app.mint("Oyster", {from:bob})
+
+                console.log("=== Alice starts a fTUSD stream with referral Oyster===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fTUSD"]["supertoken"].address, 
+                    sender:       alice,
+                    receiver:     user_directory.app,
+                    flowRate:     "28000",
+                    userData:     web3.eth.abi.encodeParameter('string',"Oyster")
+                });
+
+                await logUsers(userList); 
+
+                console.log("=== Carol cancels their fTUSD stream ===")
+
+                await sf.cfa.deleteFlow({
+                    superToken: token_directory["fTUSD"]["supertoken"].address,
+                    sender:     carol,
+                    receiver:   user_directory.app,
+                    by:         carol
+                });
+
+                await logUsers(userList); 
+
+                console.log("=== Frank mints affiliate NFT with URI: Bottlenose")
+
+                await app.mint("Bottlenose", {from:frank})
+
+                console.log("=== Dan starts a fTUSD stream with referral Bottlenose===")
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fTUSD"]["supertoken"].address, 
+                    sender:       dan,
+                    receiver:     user_directory.app,
+                    flowRate:     "800000",
+                    userData:     web3.eth.abi.encodeParameter('string',"Bottlenose")
+                });
+
+                await logUsers(userList); 
+
+                console.log("=== Bob mints affiliate NFT with URI: KillerWhale")
+
+                await app.mint("KillerWhale", {from:bob})
+
+                console.log("=== Alice updates their fTUSD stream ===")
+
+                await sf.cfa.updateFlow({
+                    superToken: token_directory["fTUSD"]["supertoken"].address,
+                    sender: alice,
+                    receiver: user_directory.app,
+                    flowRate: "458000"
+                });
+
+                await logUsers(userList); 
+
+            })
+        }
+        
         // dictionary of users
             // user
             // |_ list of cashflow tokens
@@ -1302,28 +1623,10 @@ describe("TradeableFlow", function () {
     
 
         // Fixed:
-            // select 10 different users
+            // select 7 different users
             // upgrade all their tokens
 
-        // Variable
-            // randomly select a user
-                // Option 1: NFT Transfer
-                    // if the user has a cashflow token(s)
-                        // randomly select one
-                        // randomly transfer it to another user
-                // Option 2: Create stream (no aff code)
-                    // (only an option if current flow is zero)
-                        // randomly start streaming at a rate between 1 and 100000
-                // Option 3: Create stream (w/ aff code)
-                    // (only an option if current flow is zero)
-                        // randomly start streaming at a rate between 1 and 100000 w/ a user code from affCodes
-                // Option 4: Update stream
-                    // (only an option if current flow ISN'T zero)
-                        // randomly modify streaming to a rate between 1 and 100000
-                // Option 5: Cancel stream
-                    // (only an option if current flow ISN'T zero)
-                        // cancel stream
-            // log users
+
 
 
 

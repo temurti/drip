@@ -138,14 +138,19 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   /**
-  @notice Allows owner to set new super token acceptable for payment in affiliate program. Tokens CANNOT be unset as acceptable
+  @notice Allows owner to set new super token acceptable for payment in affiliate program.
+  @dev Tokens CANNOT be unset as acceptable
   @param supertoken New super token to be accepted for payment
+
+  IMPORTANT NOTE:
+  - When setting new tokens, bear this in mind https://discord.com/channels/752490247643725875/752493348169711696/868658956162203671
+  - Simply deposit 4-hours-of-a-100-times-a-max-expected-stream worth of supertoken into the contract to prevent contract malfunction
   */
   function setNewAcceptedToken(
     ISuperToken supertoken
   ) external onlyOwner {
     // Makeshift solution - if the address provided is not a super token, this will error out
-    address underlying = supertoken.getUnderlyingToken();
+    require(_ap.host == ISuperfluid(supertoken.getHost()),"!host");
 
     _ap.acceptedTokensList.push(supertoken);
     _ap.acceptedTokens[supertoken] = true;

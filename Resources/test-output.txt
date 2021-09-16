@@ -1,0 +1,85 @@
+=== Carol starts a fTUSD stream without referral ===
+Create flow from 0x90F79bf6EB2c4f870365E785982E1f101E93b906 to 0xf5059a5D33d5853360D16C683c16e67980206f36 at 39000 ...
+Flow created.
+USER    |       fDAIx   |       fUSDCx  |       fTUSDx  |       AFFL.   |       TOKEN ID
+----------------------------------------------------------------------------------------------
+Admin   |       0       |       0       |       39000   |       -----   |       0
+Alice   |       0       |       0       |       0       |       -----   |       0
+Bob     |       0       |       0       |       0       |       -----   |       0
+Carol   |       0       |       0       |       -39000  |       -----   |       0
+Dan     |       0       |       0       |       0       |       -----   |       0
+Emma    |       0       |       0       |       0       |       -----   |       0
+Frank   |       0       |       0       |       0       |       -----   |       0
+----------------------------------------------------------------------------------------------
+App     |       0       |       0       |       0       |
+==============================================================================================
+
+=== Bob mints affiliate NFT with URI: Oyster
+Token ID of Minted NFT: 1
+
+=== Alice starts a fTUSD stream with referral Oyster===
+Create flow from 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 to 0xf5059a5D33d5853360D16C683c16e67980206f36 at 28000 ...
+Flow created.
+USER    |       fDAIx   |       fUSDCx  |       fTUSDx  |       AFFL.   |       TOKEN ID
+----------------------------------------------------------------------------------------------
+Admin   |       0       |       0       |       61400   |       -----   |       0
+Alice   |       0       |       0       |       -28000  |       Bob     |       1
+Bob     |       0       |       0       |       5600    |       -----   |       0
+Carol   |       0       |       0       |       -39000  |       -----   |       0
+Dan     |       0       |       0       |       0       |       -----   |       0
+Emma    |       0       |       0       |       0       |       -----   |       0
+Frank   |       0       |       0       |       0       |       -----   |       0
+----------------------------------------------------------------------------------------------
+App     |       0       |       0       |       0       |
+==============================================================================================
+
+=== Carol cancels their fTUSD stream ===
+Delete flow from 0x90F79bf6EB2c4f870365E785982E1f101E93b906 to 0xf5059a5D33d5853360D16C683c16e67980206f36 by 0x90F79bf6EB2c4f870365E785982E1f101E93b906 ...
+Flow deleted.
+USER    |       fDAIx   |       fUSDCx  |       fTUSDx  |       AFFL.   |       TOKEN ID
+----------------------------------------------------------------------------------------------
+Admin   |       0       |       0       |       22400   |       -----   |       0
+Alice   |       0       |       0       |       -28000  |       Bob     |       1
+Bob     |       0       |       0       |       5600    |       -----   |       0
+Carol   |       0       |       0       |       0       |       -----   |       0
+Dan     |       0       |       0       |       0       |       -----   |       0
+Emma    |       0       |       0       |       0       |       -----   |       0
+Frank   |       0       |       0       |       0       |       -----   |       0
+----------------------------------------------------------------------------------------------
+App     |       0       |       0       |       0       |
+==============================================================================================
+
+=== Frank mints affiliate NFT with URI: Bottlenose
+Token ID of Minted NFT: 2
+
+=== Dan starts a fTUSD stream with referral Bottlenose===
+Create flow from 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 to 0xf5059a5D33d5853360D16C683c16e67980206f36 at 800000 ...
+Flow created.
+USER    |       fDAIx   |       fUSDCx  |       fTUSDx  |       AFFL.   |       TOKEN ID
+----------------------------------------------------------------------------------------------
+Admin   |       0       |       0       |       22400   |       -----   |       0
+Alice   |       0       |       0       |       -28000  |       Bob     |       1
+Bob     |       0       |       0       |       5600    |       -----   |       0
+Carol   |       0       |       0       |       0       |       -----   |       0
+Dan     |       0       |       0       |       -800000 |       -----   |       0
+Emma    |       0       |       0       |       0       |       -----   |       0
+Frank   |       0       |       0       |       0       |       -----   |       0
+----------------------------------------------------------------------------------------------
+App     |       0       |       0       |       800000  |
+==============================================================================================
+
+=== Bob mints affiliate NFT with URI: KillerWhale
+Token ID of Minted NFT: 3
+
+=== Alice updates their fTUSD stream ===
+Update flow from 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 to 0xf5059a5D33d5853360D16C683c16e67980206f36 to 458000 ...
+      1) random test
+
+
+  0 passing (27s)
+  1 failing
+
+  1) TradeableFlow
+       sending flows
+         random test:
+     Error: VM Exception while processing transaction: reverted with reason string 'CFA: APP_RULE_NO_CRITICAL_RECEIVER_ACCOUNT'
