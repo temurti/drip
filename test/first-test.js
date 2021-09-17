@@ -252,6 +252,8 @@ describe("TradeableFlow", function () {
     }
 
     async function randomAction(userList,userStatuses) {
+        // TODO: add in stupid scenarios like beneficiaries cancelling their streams
+
         let moddedUserStatuses = userStatuses
         // Admin is at first index, gets cut out here
         validUsers = userList.slice(1)
@@ -316,6 +318,10 @@ describe("TradeableFlow", function () {
             const randomNFTForTransfer = nfts[Math.floor(Math.random() * nfts.length)]
 
             console.log(`=== ${alias_directory[randomUser]} transfers ${await app.tokenURI(randomNFTForTransfer)} NFT to ${alias_directory[randomDestinationUser]} ===`)
+
+            // For randomUser get outflow rate from app pertaining to NFT
+            // For randomUser get balance of NFT
+            // For randomDestinationUser get balance of NFT
             
             await app.transferFrom(
                 randomUser, 
@@ -324,7 +330,9 @@ describe("TradeableFlow", function () {
                 {from:randomUser}
             );
 
-            // Update statuses
+            // Assert that randomDestinationUser now has the outflow rate that randomUSer did for that NFT
+            // Assert that randomUser now has one less than original NFT balance and randomDesinationUser has one more
+            
 
             // Remove from randomUser's list
             moddedUserStatuses[randomUser]["tokens"] = nfts.filter(token => token !== randomNFTForTransfer)
@@ -357,6 +365,9 @@ describe("TradeableFlow", function () {
 
             console.log(`=== ${alias_directory[randomUser]} starts a ${randomPaymentSuperToken} stream without referral ===`)
 
+            // get original inflow rate from randomUser to app
+            // get original outflow rate from app to admin
+
             await sf.cfa.createFlow({
                 superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
                 sender:       randomUser,
@@ -364,6 +375,9 @@ describe("TradeableFlow", function () {
                 flowRate:     newFlow.toString(),
                 userData:     web3.eth.abi.encodeParameter('string',"")
             });
+
+            // assert that new flow rate from randomUser to app is + newFlow
+            // assert that new flow rate from app to admin is + newFlow
 
             moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
             moddedUserStatuses[randomUser]["paymentToken"] = randomPaymentSuperToken
@@ -378,6 +392,10 @@ describe("TradeableFlow", function () {
 
             console.log(`=== ${alias_directory[randomUser]} starts a ${randomPaymentSuperToken} stream with referral ${randAffCode}===`)
 
+            // get original inflow rate of randomUser
+            // get original outflow rate to admin
+            // get original outflow rate to aff associated with randAffCode (TODO: make getTokenIdFromAffiliateCode)
+
             await sf.cfa.createFlow({
                 superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
                 sender:       randomUser,
@@ -385,6 +403,10 @@ describe("TradeableFlow", function () {
                 flowRate:     newFlow.toString(),
                 userData:     web3.eth.abi.encodeParameter('string',randAffCode)
             });
+
+            // assert that new flow rate from randomUser to app is + newFlow
+            // assert that new flow rate from app to aff is + newFlow*20%
+            // assert that new flow rate from app to admin is newFlow - (newFlow*20%)
 
             moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
             moddedUserStatuses[randomUser]["paymentToken"] = randomPaymentSuperToken
@@ -396,6 +418,9 @@ describe("TradeableFlow", function () {
 
             console.log(`=== ${alias_directory[randomUser]} updates their ${randomPaymentSuperToken} stream ===`)
 
+            // get original inflow rate from randomUser to app
+            // get original outflow rate from app to admin
+
             await sf.cfa.updateFlow({
                 superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
                 sender:       randomUser,
@@ -403,6 +428,14 @@ describe("TradeableFlow", function () {
                 flowRate:     newFlow.toString(),
             });
 
+            // NOTE: think a little more about users that cancel and restart their subscriptions and the retainance of their profile
+            // assert that new flow rate from randomUser to app is + (newFlow - originalFlow)
+            // if user is not affiliated
+                // assert that new flow rate from app to admin is + (newFlow - originalFlow)
+            // if user is affiliated
+                // assert that new flow rate from app to aff is + (newFlow - originalFlow)*20%
+                // assert that new flow rate from app to admin is (newFlow - originalFlow) - ((newFlow - originalFlow)*20%)
+        
             moddedUserStatuses[randomUser][randomPaymentSuperToken] = newFlow
 
             await logUsers(userList)
@@ -412,12 +445,22 @@ describe("TradeableFlow", function () {
 
             console.log(`=== ${alias_directory[randomUser]} cancels their ${randomPaymentSuperToken} stream ===`)
 
+            // get original inflow rate from randomUser to app
+            // get original outflow rate from app to admin
+
             await sf.cfa.deleteFlow({
                 superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
                 sender:       randomUser,
                 receiver:     user_directory.app,
                 by:           randomUser
             });
+
+            // assert that new flow rate from randomUser to app is + (newFlow - originalFlow)
+            // if user is not affiliated
+                // assert that new flow rate from app to admin is + (newFlow - originalFlow)
+            // if user is affiliated
+                // assert that new flow rate from app to aff is + (newFlow - originalFlow)*20%
+                // assert that new flow rate from app to admin is (newFlow - originalFlow) - ((newFlow - originalFlow)*20%)
 
             moddedUserStatuses[randomUser][randomPaymentSuperToken] = 0
             moddedUserStatuses[randomUser]["paymentToken"] = null
@@ -427,31 +470,6 @@ describe("TradeableFlow", function () {
 
         return moddedUserStatuses
 
-        // Variable
-            // randomly select a user except admin
-                    // if the user has a cashflow token(s)
-                        // randomly select one of their cashflow tokens
-                        // randomly transfer it to another user
-                        // delete transfer token from user's list and add to new user's
-                // Option 2: NFT Mint
-                    // mint the user an NFT
-                // Option 3: Create stream (no aff code)
-                    // (only an option if current flow is zero)
-                        // randomly start streaming at a rate between 1 and 100000
-                        // update current flow
-                // Option 4: Create stream (w/ aff code)
-                    // (only an option if current flow is zero)
-                        // randomly start streaming at a rate between 1 and 100000 w/ a user code from affCodes
-                        // update current flow
-                // Option 5: Update stream
-                    // (only an option if current flow ISN'T zero)
-                        // randomly modify streaming to a rate between 1 and 100000
-                        // update current flow
-                // Option 6: Cancel stream
-                    // (only an option if current flow ISN'T zero)
-                        // cancel stream
-                        // update current flow
-            // log users
     }
    
     describe("sending flows", async function () {
