@@ -507,7 +507,7 @@ contract RedirectAll is SuperAppBase {
     }
 
     /**************************************************************************
-     * SuperApp emergency functionality
+     * SuperApp emergency and admin functionality
      *************************************************************************/
 
     /**
@@ -549,7 +549,6 @@ contract RedirectAll is SuperAppBase {
         token.transfer(_ap.owner, amount);
 
     }
-
 
 
 }

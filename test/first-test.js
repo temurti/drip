@@ -32,6 +32,8 @@ describe("TradeableFlow", function () {
     const tokens = ["fDAI","fUSDC","fTUSD"]
     let affCodes = ["BlueWhale","KillerWhale","Penguin","Narwhal","Oyster","WhaleShark","GreatWhite","Beluga","PilotWhale","Bottlenose"]
     let affCodesInUse = []
+    let tokensInUse = []
+    let tokensNotInUse = tokens
 
     let sf;
     let dai;
@@ -152,8 +154,8 @@ describe("TradeableFlow", function () {
         
         // add fUSDCx as an acceptable supertoken
         await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
         // Create Superfluid user for TradeableFlow contract
         user_directory.app = app.address
@@ -261,7 +263,7 @@ describe("TradeableFlow", function () {
 
         // randomly select an new flow rate and token if update/create flow options are selected
         let newFlow = Math.round(Math.floor(Math.random() * (1000000 - 1001 + 1) + 1001) / 1000)*1000
-        let randomPaymentSuperToken = tokens[Math.floor(Math.random() * tokens.length)]
+        let randomPaymentSuperToken = tokensInUse[Math.floor(Math.random() * tokensInUse.length)]
         if (userStatuses[randomUser]["paymentToken"] != null) {
             randomPaymentSuperToken = userStatuses[randomUser]["paymentToken"]
         }
@@ -283,7 +285,7 @@ describe("TradeableFlow", function () {
             options = [5,6]
         } else {
             // Otherwise, provide create option
-            options = [3]
+            options = [3,3,3]
             // if there are affiliate NFTs out then make creating a stream with one an option
             if (affCodesInUse.length > 0) {
                 options.push(4)
@@ -295,6 +297,13 @@ describe("TradeableFlow", function () {
         // NOTE: Limiting number of NFTs possible for minting to amount of set codes to increase actiivty in other options
         if (affCodesInUse.length <= affCodes.length) {
             options.push(2)
+        }
+
+        // As long as available tokens are there, permit setting a new one as an options
+        if (tokensInUse.length == 0) {
+            options = [7]
+        } else if (tokensInUse.length < tokens.length) {
+            options.push(7)
         }
 
         if (nfts.length > 0) {
@@ -467,6 +476,17 @@ describe("TradeableFlow", function () {
 
             await logUsers(userList)
         }
+        // Option 7: Set new acceptable token
+        else if (randomChoice == 7) {
+            let randomPaymentSuperToken = tokensNotInUse[Math.floor(Math.random() * tokensNotInUse.length)]
+            console.log(`=== Setting new accepted token: ${randomPaymentSuperToken} ===`)
+            await app.setNewAcceptedToken(token_directory[randomPaymentSuperToken]['supertoken'].address ,{from:user_directory.admin})
+            tokensNotInUse = tokensNotInUse.filter(token => token !== randomPaymentSuperToken)
+            tokensInUse.push(randomPaymentSuperToken)
+        }
+
+
+        // assert that app netflow is zero
 
         return moddedUserStatuses
 
@@ -487,8 +507,8 @@ describe("TradeableFlow", function () {
             "advanced multi-NFT case":false,
             "restrict owner flow":false,
             "locking app":false,
-            "balance sweep":true,
-            "random test":false,
+            "balance sweep":false,
+            "random test":true,
             "temp":false
         }
 
@@ -1527,6 +1547,7 @@ describe("TradeableFlow", function () {
 
 
                 // Give App a little supertoken so it doesn't get mad over deposit allowance
+                // This is a vulnerability vector - how much should you deposit to ensure app doesn't go under?
                 await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
                 await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
                 await token_directory["fTUSD"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:admin});
@@ -1538,7 +1559,7 @@ describe("TradeableFlow", function () {
                     userStatuses[userList[i]] = {"tokens":[],"fDAI":0,"fUSDC":0,"fTUSD":0,"paymentToken":null}
                 }
 
-                for (var i = 0; i < 20; i++) {
+                for (var i = 0; i < 100; i++) {
                     userStatuses = await randomAction(userList,userStatuses);
                 }
             })
@@ -1633,22 +1654,6 @@ describe("TradeableFlow", function () {
 
             })
         }
-        
-        // dictionary of users
-            // user
-            // |_ list of cashflow tokens
-            // |_ current flow (so if it's zero, you do create instead of update)
-    
 
-        // Fixed:
-            // select 7 different users
-            // upgrade all their tokens
-
-
-
-
-
-                
-        
     });
 });

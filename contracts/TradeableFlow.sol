@@ -25,6 +25,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
 
   address public owner;                                         // Public owner address for visibility
+  address public drip;                                          // sets address of Drip wallet
+  int96 public dripSubscriptionRequirement;                     // sets the required rate the program owner must be paying
+  ISuperToken dripPaymentToken;                                 // payment token that program owner uses to pay for using Drip
   address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
   uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
 
@@ -35,7 +38,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
     address _ERC20MintRestrict,
-    int96 _affiliatePortion
+    int96 _affiliatePortion,
+    address _drip,
+    ISuperToken _dripPaymentToken
   )
     public ERC721 ( _name, _symbol )
     RedirectAll (
@@ -47,11 +52,17 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     ERC20MintRestrict = _ERC20MintRestrict;
     _ap.affiliatePortion = _affiliatePortion;
     owner = _owner;
+    drip = _drip;
   }
 
   modifier hasEnoughERC20Restrict() {
     // Must own enough of the designated ERC20 token to mint an affiliate NFT
     require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
+    _;
+  }
+
+  modifier onlyDrip() {
+    require(msg.sender == drip, "!drip");
     _;
   }
 
@@ -122,6 +133,21 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   */
   function setLock(bool lockStatus) external onlyOwner {
     _ap.locked = lockStatus;
+  }
+
+  /**
+  @notice Sets app lock status if Drip Program Owner fails to pay Drip
+  @dev Setting to true blocks incoming streams and allows anyone to cancel incoming streams
+  @param lockStatus the new desired lock status of contract
+  */
+  function setLockDrip(bool lockStatus) external onlyDrip {
+    (,int96 ownerPaymentFlow,,) = _ap.cfa.getFlow(dripPaymentToken, _ap.owner, drip);
+    require(ownerPaymentFlow >= dripSubscriptionRequirement);
+    _ap.locked = lockStatus;
+  }
+
+  function setDripSubscriptionRequirement(int96 newRequirement) external onlyDrip {
+    dripSubscriptionRequirement = newRequirement;
   }
 
   /**
