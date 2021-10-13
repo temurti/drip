@@ -36,7 +36,8 @@ contract RedirectAll is SuperAppBase {
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
-        address owner) {
+        address owner,
+        string memory registrationKey) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
         require(address(owner) != address(0), "owner");
@@ -52,7 +53,14 @@ contract RedirectAll is SuperAppBase {
             SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
             SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
 
-        _ap.host.registerApp(configWord);
+        // _ap.host.registerApp(configWord);
+
+        if(bytes(registrationKey).length > 0) {
+            _ap.host.registerAppWithKey(configWord, registrationKey);
+        } else {
+            _ap.host.registerApp(configWord);
+        }
+        
     }
 
     /**************************************************************************
@@ -99,10 +107,10 @@ contract RedirectAll is SuperAppBase {
             uint256 tokenId = _ap.referralcodeToToken[affCode];
             // Get [affiliate] address associated with tokenId
             address affiliate = _ap.tokenToAffiliate[tokenId];
-            // Get old flowRate to [affiliate] in affiliate => outflow mapping
-            (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
             // If the affiliate address is not empty (so it's a valid referral code)
             if (affiliate != address(0)) {
+                // Get old flowRate to [affiliate] in affiliate => outflow mapping
+                (,int96 currentFlowToAffiliate,,) = _ap.cfa.getFlow(supertoken, address(this), affiliate);
                 // Calculate potion of newFlowFromSubscriber that will go towards increasing affiliate's income in proportion to _ap.affiliatePortion
                 int96 affiliateChangeAmount = ( newFlowFromSubscriber * _ap.affiliatePortion) / 1000000000000;
                 // Increase flow to affiliate
@@ -149,7 +157,7 @@ contract RedirectAll is SuperAppBase {
         newCtx = _tcd.ctx;
 
         // Get subscriber from agreementData
-        (address subscriber, ) = abi.decode(_tcd.agreementData, (address, address));
+        (address subscriber, address app) = abi.decode(_tcd.agreementData, (address, address));
 
         // Get associated tokenId in subscriber => subscribers.tokenId mapping amd then get [affiliate] address associated with tokenId
         address affiliate = _ap.tokenToAffiliate[ _ap.subscribers[subscriber].tokenId ];
@@ -193,8 +201,10 @@ contract RedirectAll is SuperAppBase {
             // get the net flow for the application. This will get the outward flow that was lost from the affiliate/owner cancelling
             int96 netFlow = _ap.cfa.getNetFlow(supertoken,address(this));
             // recreating the flow back to the affiliate/owner. So basically, we're just restarting the flow they deleted because we're not allowed to prevent them from deleting
-            // "subscriber" here is really the rogue affiliate/owner
-            newCtx = _createFlow(subscriber,netFlow,supertoken,newCtx);
+            // "app" here is really the rogue affiliate/owner
+
+            // TODO: control for updating to same amount and having a intended error, not just this convenient self flow reversion
+            newCtx = _createFlow(app,netFlow,supertoken,newCtx);
 
         }
 
@@ -244,8 +254,10 @@ contract RedirectAll is SuperAppBase {
                 int96 newFlowToAffiliate = oldAffiliateOutflow - _ap.tokenToPaymentTokentoOutflowRate[tokenId][_ap.acceptedTokensList[i]];
                 // update streams
                 if (newFlowToAffiliate == 0) {
+                    // If the new affiliate flow is zero (so maybe they owned only one DripNFT), delete their flow
                     _deleteFlow(address(this), oldAffiliate, _ap.acceptedTokensList[i]);
                 } else {
+                    // Maybe the affiliate has another NFT they're earning income on. Only update down to newFlowToAffiliate.
                     _updateFlow(oldAffiliate, newFlowToAffiliate, _ap.acceptedTokensList[i]);
                 }
                 // update affiliate address in tokenToAffiliate mapping (tokenId => affiliate address) to new affiliate
@@ -507,7 +519,7 @@ contract RedirectAll is SuperAppBase {
     }
 
     /**************************************************************************
-     * SuperApp emergency functionality
+     * SuperApp emergency and admin functionality
      *************************************************************************/
 
     /**
@@ -549,7 +561,6 @@ contract RedirectAll is SuperAppBase {
         token.transfer(_ap.owner, amount);
 
     }
-
 
 
 }

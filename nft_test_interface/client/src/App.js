@@ -18,6 +18,7 @@ class App extends Component {
       account: '',
       accounts: [],
       owner:'',
+      drip:'',
       sf:null
     }
 
@@ -26,8 +27,10 @@ class App extends Component {
     this.transferNFT = this.transferNFT.bind(this)
     this.setNewAcceptableToken = this.setNewAcceptableToken.bind(this)
     this.getOwner = this.getOwner.bind(this)
+    this.getDrip = this.getDrip.bind(this)
     this.startFlow = this.startFlow.bind(this)
     this.getAffiliateCodeFromTokenId = this.getAffiliateCodeFromTokenId.bind(this)
+    this.setERC20MintRestrictions = this.setERC20MintRestrictions.bind(this)
   }
 
   componentDidMount() {
@@ -63,6 +66,7 @@ class App extends Component {
     this.setState({NFTUrl:`https://rinkeby.etherscan.io/token/${appAddress}?a=${this.state.account}`})
 
     await this.getOwner()
+    await this.getDrip()
 
     window.ethereum.on('accountsChanged', function (accounts) {
       // Re-do the WEB3 SET UP if accounts are changed
@@ -81,7 +85,16 @@ class App extends Component {
     });
   }
 
-  async 
+  // Gets the Drip program manager
+  async getDrip() {
+    var appInst = new this.state.web3.eth.Contract(tradeableFlowABI,appAddress)
+    
+    appInst.methods.drip().call(function(err, res){
+      console.log("Drip Owner:",res)
+      document.getElementById("drip").innerHTML = res
+    });
+  }
+
 
   async mintNFT() {
     var appInst = new this.state.web3.eth.Contract(tradeableFlowABI,appAddress)
@@ -122,6 +135,22 @@ class App extends Component {
     ).send({ from: this.state.account })
 
     document.getElementById("tokenAddress").value = ""
+  }
+
+  async setERC20MintRestrictions() {
+    var appInst = new this.state.web3.eth.Contract(tradeableFlowABI,appAddress)
+    var tokenAddress = document.getElementById("newERC20MintRestrict").value
+    var newBalReq = document.getElementById("newERC20MintRestrictBalanceRequirement").value
+
+    await appInst
+    .methods.setERC20MintRestriction(
+      newBalReq,
+      tokenAddress
+    ).send({ from: this.state.account })
+
+    document.getElementById("newERC20MintRestrict").value = ""
+    document.getElementById("newERC20MintRestrictBalanceRequirement").value = ""
+
   }
 
   async getAffiliateCodeFromTokenId() {
@@ -210,6 +239,26 @@ class App extends Component {
 
           <br></br>
 
+          <table id = "ercc20restrict-table">
+            <tr>
+              <th>Set ERC20 Mint Restrictions (must be done before potential affiliates can mint)</th>
+              <th></th>
+              <th></th>
+            </tr>
+            <tr>
+              <td>ERC20 Restrict Address</td>
+              <td>Balance Requirement</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td><input type="text" id="newERC20MintRestrict"/></td>
+              <td><input type="text" id="newERC20MintRestrictBalanceRequirement"/></td>
+              <td><button id="seterc20restrict-button" onClick={this.setERC20MintRestrictions}>Set</button></td>
+            </tr>
+          </table>
+
+          <br></br>
+
           <table id = "set-new-acceptable-token-table">
             <tr>
               <th>Provide address of new token you'd be willing to accept as payment for your affiliate program</th>
@@ -274,6 +323,9 @@ class App extends Component {
 
           <p>Program Owner</p>
           <p id="owner"></p>
+          <p>Drip Owner</p>
+          <p id="drip"></p>
+
 
         </body>
 
