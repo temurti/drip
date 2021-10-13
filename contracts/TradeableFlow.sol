@@ -223,7 +223,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   /**
   @notice Lets Drip set new monetization authority address
   @param newDrip Address of new monetization authority address
-   */
+  */
   function setNewDripOwner(
     address newDrip
   ) external {
