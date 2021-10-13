@@ -65,7 +65,9 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   modifier hasEnoughERC20Restrict() {
     // Must own enough of the designated ERC20 token to mint an affiliate NFT
-    require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
+    if (ERC20MintRestrict != address(0)) {
+      require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
+    }
     _;
   }
 
@@ -82,7 +84,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   function mint(string memory referralCode) external hasEnoughERC20Restrict returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");                         // Shouldn't be minting affiliate NFTs to contract deployer
     require(_ap.referralcodeToToken[referralCode] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
-    require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ));  // We don't want to be minting an affiliate NFT with blank referral code
+    require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ),"blank");  // We don't want to be minting an affiliate NFT with blank referral code
 
     tokenIds.increment();
     tokenId = tokenIds.current();
@@ -146,7 +148,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   
   /**
   @notice Token transfer callback - redirects existing flows to new affiliate
-  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't to transferred to owner
+  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't be transferred to owner
   @param from original affiliate
   @param to new affiliate
   @param tokenId token ID of affiliate NFT being transferred
