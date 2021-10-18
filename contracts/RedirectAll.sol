@@ -36,7 +36,9 @@ contract RedirectAll is SuperAppBase {
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
-        address owner) {
+        address owner,
+        string memory registrationKey
+        ) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
         require(address(owner) != address(0), "owner");
@@ -52,7 +54,12 @@ contract RedirectAll is SuperAppBase {
             SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
             SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
 
-        _ap.host.registerApp(configWord);
+        // _ap.host.registerApp(configWord);
+        if(bytes(registrationKey).length > 0) {
+            _ap.host.registerAppWithKey(configWord, registrationKey);
+        } else {
+            _ap.host.registerApp(configWord);
+        }
     }
 
     /**************************************************************************

@@ -35,13 +35,15 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
     address _ERC20MintRestrict,
-    int96 _affiliatePortion
+    int96 _affiliatePortion,
+    string memory registrationKey
   )
     public ERC721 ( _name, _symbol )
     RedirectAll (
       host,
       cfa,
-      _owner
+      _owner,
+      registrationKey
      )
   { 
     ERC20MintRestrict = _ERC20MintRestrict;

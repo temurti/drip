@@ -145,7 +145,8 @@ describe("TradeableFlow", function () {
             sf.host.address,
             sf.agreements.cfa.address,
             uwl.address,                                          // ERC20Restrict token
-            200000000000                                          // Affiliate Portion (20%)
+            200000000000,                                         // Affiliate Portion (20%)
+            ""
         );
 
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
@@ -487,8 +488,8 @@ describe("TradeableFlow", function () {
             "advanced multi-NFT case":false,
             "restrict owner flow":false,
             "locking app":false,
-            "balance sweep":true,
-            "random test":false,
+            "balance sweep":false,
+            "random test":true,
             "temp":false
         }
 
