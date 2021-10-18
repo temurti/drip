@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
 
 /*
@@ -20,18 +21,29 @@ Changing the owner would cause serious issues with users creating/updating their
 /// @title Affiliate Cashflow NFT
 contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
+  using Strings for uint256;                                    // clever package which lets you cast uints to strings
   using Counters for Counters.Counter;
   Counters.Counter tokenIds;
-  event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
 
   address public owner;                                         // Public owner address for visibility
+
+  address public drip;                                          // sets address of Drip wallet
+  int96 public dripSubscriptionRequirement;                     // sets the required rate the program owner must be paying
+  ISuperToken public dripPaymentToken;                          // payment token that program owner uses to pay for using Drip
+
   address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
   uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
+
+  string private baseURI;                                        // Base URI pointing to Drip asset database
+
+  event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
+  event appLocked();
 
   constructor (
     address _owner,
     string memory _name,
     string memory _symbol,
+    string memory _baseURI,
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
     address _ERC20MintRestrict,
@@ -46,47 +58,98 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       registrationKey
      )
   { 
-    ERC20MintRestrict = _ERC20MintRestrict;
     _ap.affiliatePortion = _affiliatePortion;
     owner = _owner;
+    drip = _drip;
+    baseURI = _baseURI;
   }
 
   modifier hasEnoughERC20Restrict() {
     // Must own enough of the designated ERC20 token to mint an affiliate NFT
-    require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
+    if (ERC20MintRestrict != address(0)) {
+      require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
+    }
+    _;
+  }
+
+  modifier onlyAuthorizedLocker() {
+    require(msg.sender == drip || msg.sender == _ap.owner, "!auth");
     _;
   }
 
   /**
   @notice Mints the affiliate NFT
-  @param tokenURI URI, which also serves as affiliate code
+  @param referralCode URI, which also serves as referral code
   @return tokenId Token ID of minted affiliate NFT
   */
-  function mint(string memory tokenURI) external hasEnoughERC20Restrict returns (uint256 tokenId) {
+  function mint(string memory referralCode) external hasEnoughERC20Restrict returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");                         // Shouldn't be minting affiliate NFTs to contract deployer
-    require(_ap.referralcodeToToken[tokenURI] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
-    require(keccak256( bytes(tokenURI) ) != keccak256( bytes("") ));  // We don't want to be minting an affiliate NFT with blank referral code
+    require(_ap.referralcodeToToken[referralCode] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ),"blank");  // We don't want to be minting an affiliate NFT with blank referral code
 
     tokenIds.increment();
     tokenId = tokenIds.current();
 
+    _ap.tokenToReferralCode[tokenId] = referralCode;
+
     _mint(msg.sender,tokenId);
-    _setTokenURI(tokenId,tokenURI); 
+    // _setTokenURI(tokenId,referralCode); 
 
     // Set msg.sender as affiliate for the token
     _ap.tokenToAffiliate[tokenId] = msg.sender; 
 
     // Set referral code to corresponding token
-    _ap.referralcodeToToken[tokenURI] = tokenId;
+    _ap.referralcodeToToken[referralCode] = tokenId;
 
     // Emit event that NFT was minted
     emit NewAffiliateLink(tokenId, msg.sender);
 
   }
+
+  /**
+  @notice Overrides tokenURI
+  @param tokenId token ID of Drip NFT being queried
+  @return token URI
+  */
+  function tokenURI(uint256 tokenId)
+      public
+      view
+      override(ERC721, ERC721URIStorage)
+      returns (string memory)
+  {
+      if (bytes(_baseURI()).length > 0) {
+        return string(
+              abi.encodePacked(
+              _baseURI(),
+              "/",
+              tokenId.toString()
+            )
+          );
+      } else {
+        return "";
+      }
+  }
+
+  /**
+  @notice override for base URI
+  @return the variable `baseURI`
+  */
+  function _baseURI() internal view override returns (string memory) {
+      return baseURI;
+  }
+
+  /**
+  @notice Reset NFT base URIs
+  @param newBaseURI new base URI to be used
+  */
+  function setBaseURI(string memory newBaseURI) external onlyOwner {
+      baseURI = newBaseURI;
+  }
+
   
   /**
   @notice Token transfer callback - redirects existing flows to new affiliate
-  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't to transferred to owner
+  @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't be transferred to owner
   @param from original affiliate
   @param to new affiliate
   @param tokenId token ID of affiliate NFT being transferred
@@ -107,23 +170,23 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       super._burn(tokenId);
   }
 
-  /// @dev overriding _burn due duplication in inherited ERC721 and ERC721URIStorage
-  function tokenURI(uint256 tokenId)
-      public
-      view
-      override(ERC721, ERC721URIStorage)
-      returns (string memory)
-  {
-      return super.tokenURI(tokenId);
+  /**
+  @notice Sets app to locked. If an owner locks their program, they must notify Drip!
+  @notice Drip is allowed to lock the app at discretion as a consequence for not paying for the service
+  @dev Setting to true blocks incoming streams and allows anyone to cancel incoming streams
+  */
+  function lock() external onlyAuthorizedLocker {
+    _ap.locked = true;
+    emit appLocked();
   }
 
   /**
-  @notice Sets app lock status - emergency functionality
+  @notice Sets app to, only Drip can unlock to retain control over monetization
   @dev Setting to true blocks incoming streams and allows anyone to cancel incoming streams
-  @param lockStatus the new desired lock status of contract
   */
-  function setLock(bool lockStatus) external onlyOwner {
-    _ap.locked = lockStatus;
+  function unlock() external {
+    require(msg.sender == drip, "!drip");
+    _ap.locked = false;
   }
 
   /**
@@ -156,6 +219,17 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
     _ap.acceptedTokensList.push(supertoken);
     _ap.acceptedTokens[supertoken] = true;
+  }
+
+  /**
+  @notice Lets Drip set new monetization authority address
+  @param newDrip Address of new monetization authority address
+  */
+  function setNewDripOwner(
+    address newDrip
+  ) external {
+    require(msg.sender == drip,"!drip");
+    drip = newDrip;
   }
 
   /**
@@ -221,10 +295,30 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   /**
   @notice Gets outflow associated with a cashflow NFT
+  @param tokenId The token ID of NFT who's associated flow is to be discovered
+  @param supertoken The supertoken of which the flow is in concern
   @return outflow rate
   */
   function getOutflowFromTokenId(uint256 tokenId, ISuperToken supertoken) external view returns (int96) {
     return _ap.tokenToPaymentTokentoOutflowRate[tokenId][supertoken];
+  }
+
+  /**
+  @notice Gets token ID associated with a referral code
+  @param referralCode The referral code whose associated token ID is in concern
+  @return token ID
+  */
+  function getTokenIdFromAffiliateCode(string memory referralCode) external view returns (uint256) {
+    return _ap.referralcodeToToken[referralCode];
+  }
+
+    /**
+  @notice Gets referral associated with a token Id code
+  @param tokenId The token ID whose referral code is in concern
+  @return referral code
+  */
+  function getAffiliateCodeFromTokenId(uint256 tokenId) external view returns (string memory) {
+    return _ap.tokenToReferralCode[tokenId];
   }
 
 }

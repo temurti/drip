@@ -13,6 +13,7 @@ import {
 
 library TradeableFlowStorage  {
 
+
    // Subscriber's details
   struct SubscriberProfile {
     ISuperToken paymentToken;                            // token subscriber is paying with
@@ -28,6 +29,7 @@ library TradeableFlowStorage  {
     ISuperToken[] acceptedTokensList;                                                   // List of all accepted super tokens (iterateable so for changeReceiver, we can iterate over and change flows)
     mapping(ISuperToken => bool) acceptedTokens;                                        // Contains all super tokens permitted as payment for subscription service as a mapping
     mapping(string => uint256) referralcodeToToken;                                     // Maps referral code to tokenIds
+    mapping(uint256 => string) tokenToReferralCode;                                     // Maps tokenIds to referral code
     mapping(uint256 => address) tokenToAffiliate;                                       // Maps NFT token ID to affiliate address
     mapping(address => SubscriberProfile) subscribers;                                  // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
     mapping(uint256 => mapping(ISuperToken => int96)) tokenToPaymentTokentoOutflowRate; // Maps NFT token ID to outflow rate for each token to for tracking when transferring
