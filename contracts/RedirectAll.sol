@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -126,8 +126,6 @@ contract RedirectAll is SuperAppBase {
                 }
                 // Update outflow associated with that NFT token id
                 _ap.tokenToPaymentTokentoOutflowRate[tokenId][supertoken] += affiliateChangeAmount;
-                console.logAddress(address(supertoken));
-                console.logInt(_ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken]);
             }
         }
 
@@ -193,9 +191,6 @@ contract RedirectAll is SuperAppBase {
             } 
             // Update outflow associated with that NFT token id
             _ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken] += affiliateChangeAmount;
-            console.logAddress(address(supertoken));
-            console.logInt(_ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken]);
-
         }
 
         // Guard against rogue beneficiaries: affiliates + owner
@@ -250,13 +245,6 @@ contract RedirectAll is SuperAppBase {
 
             // Get old flow to affiliate (so just the current flow as it's about to be changed)
             (,int96 oldAffiliateOutflow,,) = _ap.cfa.getFlow(_ap.acceptedTokensList[i], address(this), oldAffiliate);
-
-            // log the supertoken ( _ap.acceptedTokensList[i] )
-            console.logAddress(address(_ap.acceptedTokensList[i]));
-            // log the oldAffiliateOutflow
-            console.logInt(oldAffiliateOutflow);
-            // log the _ap.tokenToPaymentTokentoOutflowRate[tokenId][_ap.acceptedTokensList[i]]
-            console.logInt(_ap.tokenToPaymentTokentoOutflowRate[tokenId][_ap.acceptedTokensList[i]]);
 
             // if there's already an outflow for the tokenId:
             if (oldAffiliateOutflow != 0) {
