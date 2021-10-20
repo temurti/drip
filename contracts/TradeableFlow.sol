@@ -83,8 +83,8 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   @return tokenId Token ID of minted affiliate NFT
   */
   function mint(string memory referralCode) external hasEnoughERC20Restrict returns (uint256 tokenId) {
-    require(msg.sender != _ap.owner, "!own");                         // Shouldn't be minting affiliate NFTs to contract deployer
-    require(_ap.referralcodeToToken[referralCode] == 0, "!uri");          // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
+    require(msg.sender != _ap.owner, "!own");                                     // Shouldn't be minting affiliate NFTs to contract deployer
+    require(_ap.referralcodeToToken[referralCode] == 0, "!uri");                  // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
     require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ),"blank");  // We don't want to be minting an affiliate NFT with blank referral code
 
     tokenIds.increment();
@@ -93,7 +93,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     _ap.tokenToReferralCode[tokenId] = referralCode;
 
     _mint(msg.sender,tokenId);
-    // _setTokenURI(tokenId,referralCode); 
 
     // Set msg.sender as affiliate for the token
     _ap.tokenToAffiliate[tokenId] = msg.sender; 
@@ -132,7 +131,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   /**
-  @notice override for base URI
+  @dev override for base URI
   @return the variable `baseURI`
   */
   function _baseURI() internal view override returns (string memory) {
@@ -140,14 +139,12 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   }
 
   /**
-  @notice Reset NFT base URIs
-  @param newBaseURI new base URI to be used
+  @dev overriding _burn due duplication in inherited ERC721 and ERC721URIStorage
   */
-  function setBaseURI(string memory newBaseURI) external onlyOwner {
-      baseURI = newBaseURI;
+  function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+      super._burn(tokenId);
   }
 
-  
   /**
   @notice Token transfer callback - redirects existing flows to new affiliate
   @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't be transferred to owner
@@ -164,11 +161,6 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     if (from != address(0)) {
       _changeReceiver(from, to, tokenId);
     }
-  }
-
-  /// @dev overriding _burn due duplication in inherited ERC721 and ERC721URIStorage
-  function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
-      super._burn(tokenId);
   }
 
   /**
@@ -188,6 +180,14 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   function unlock() external {
     require(msg.sender == drip, "!drip");
     _ap.locked = false;
+  }
+
+  /**
+  @notice Reset NFT base URIs
+  @param newBaseURI new base URI to be used
+  */
+  function setBaseURI(string memory newBaseURI) external onlyOwner {
+      baseURI = newBaseURI;
   }
 
   /**
