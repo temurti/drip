@@ -126,6 +126,8 @@ contract RedirectAll is SuperAppBase {
                 }
                 // Update outflow associated with that NFT token id
                 _ap.tokenToPaymentTokentoOutflowRate[tokenId][supertoken] += affiliateChangeAmount;
+                console.logAddress(address(supertoken));
+                console.logInt(_ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken]);
             }
         }
 
@@ -191,6 +193,8 @@ contract RedirectAll is SuperAppBase {
             } 
             // Update outflow associated with that NFT token id
             _ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken] += affiliateChangeAmount;
+            console.logAddress(address(supertoken));
+            console.logInt(_ap.tokenToPaymentTokentoOutflowRate[_ap.subscribers[subscriber].tokenId][supertoken]);
 
         }
 
@@ -207,7 +211,7 @@ contract RedirectAll is SuperAppBase {
 
         }
 
-        // increase/decrease the current flowRate from this to owner (program owner's wallet) by changeInFlowSubscriber amount in proportion to (1 - _ap.affiliatePortion) (revenue)
+        // increase/decrease the current flowRate from this to owner (program owner's wallet) by changeInFlowSubscriber amount
         // if the new newFlowToOwner is zero but it's because the owner has deleted their flow, we don't want to cancel to protect the restarting of the stream to the owner in the elif section above
         if (changeInFlowSubscriber != 0) {
             if (newFlowToOwner == 0) {
@@ -247,6 +251,13 @@ contract RedirectAll is SuperAppBase {
             // Get old flow to affiliate (so just the current flow as it's about to be changed)
             (,int96 oldAffiliateOutflow,,) = _ap.cfa.getFlow(_ap.acceptedTokensList[i], address(this), oldAffiliate);
 
+            // log the supertoken ( _ap.acceptedTokensList[i] )
+            console.logAddress(address(_ap.acceptedTokensList[i]));
+            // log the oldAffiliateOutflow
+            console.logInt(oldAffiliateOutflow);
+            // log the _ap.tokenToPaymentTokentoOutflowRate[tokenId][_ap.acceptedTokensList[i]]
+            console.logInt(_ap.tokenToPaymentTokentoOutflowRate[tokenId][_ap.acceptedTokensList[i]]);
+
             // if there's already an outflow for the tokenId:
             if (oldAffiliateOutflow != 0) {
                 // new stream to affiliate should be old stream less stream pertinent to token being transferred
@@ -254,7 +265,7 @@ contract RedirectAll is SuperAppBase {
                 // update streams
                 if (newFlowToAffiliate == 0) {
                     // If the new affiliate flow is zero (so maybe they owned only one DripNFT), delete their flow
-                    _deleteFlow(address(this), oldAffiliate, _ap.acceptedTokensList[i]);
+                    _deleteFlow(address(this), oldAffiliate, _ap.acceptedTokensList[i]); // what case are we deleting a zero flow???
                 } else {
                     // Maybe the affiliate has another NFT they're earning income on. Only update down to newFlowToAffiliate.
                     _updateFlow(oldAffiliate, newFlowToAffiliate, _ap.acceptedTokensList[i]);

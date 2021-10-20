@@ -142,12 +142,12 @@ describe("TradeableFlow", function () {
         // Deploy TradeableFlow contract
         app = await TradeableFlow.new(
             user_directory.admin,
+            user_directory.drip,
             "TradeableFlow",
             "TF",
             "base-link",                                          // Base URI
             sf.host.address,
             sf.agreements.cfa.address,
-            uwl.address,                                          // ERC20Restrict token
             200000000000,                                         // Affiliate Portion (20%)
             ""
         );
@@ -155,9 +155,9 @@ describe("TradeableFlow", function () {
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // await app.setERC20MintRestriction(0,uwl.address, {from:user_directory.admin})   // ERC20Restrict token
-        await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
         // Create Superfluid user for TradeableFlow contract
         user_directory.app = app.address
@@ -288,10 +288,10 @@ describe("TradeableFlow", function () {
         let options = []
         if (outflow != 0) {
             // User already has outflows, we want to provide update and delete options
-            options = [5,6]
+            options = [5,5,5,6]
         } else {
             // Otherwise, provide create option
-            options = [3,3,3]
+            options = [3,3]
             // if there are affiliate NFTs out then make creating a stream with one an option
             if (affCodesInUse.length > 0) {
                 options = options.concat([4,4,4,4,4,4,4,4])
@@ -300,7 +300,7 @@ describe("TradeableFlow", function () {
 
         // NOTE: Limiting number of NFTs possible for minting to amount of set codes to increase actiivty in other options
         if (affCodesInUse.length <= affCodes.length) {
-            options.push(2)
+            options.push(2,2,2,2,2,2,2,2,2,2)
         }
 
         // As long as available tokens are there, permit setting a new one as an options
@@ -312,7 +312,7 @@ describe("TradeableFlow", function () {
 
         // As long as there are NFTs out there, allow for transferring of them to happen
         if (nfts.length > 0) {
-            options = options.concat([1,1])
+            options = options.concat([1,1,1,1,1,1,1])
         }
 
         // As long as valid tokens have been set, allow cancellations by rogue beneficiaries to be an option
@@ -554,7 +554,7 @@ describe("TradeableFlow", function () {
     describe("sending flows", async function () {
 
         let switchBoard = {
-            "NFT Testing":true,
+            "NFT Testing":false,
             "transferring pre-cashflow NFT":false,
             "subscriber switching payment tokens":false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease)": false,
@@ -567,7 +567,7 @@ describe("TradeableFlow", function () {
             "restrict owner flow":false,
             "locking app":false,
             "balance sweep":false,
-            "random test":false,
+            "random test":true,
             "monetization testing":false,
             "adhoc":false
         }
@@ -582,7 +582,7 @@ describe("TradeableFlow", function () {
                 await app.mint("BlueWhale", {from:bob})
                 await app.mint("Orca", {from:bob})
                 console.log("NFT Balance of Bob:", (await app.balanceOf(bob)).toString() )
-                console.log("URI of NFT:", (await app.tokenURI(1)))
+                console.log("URI of NFT:", (await app.tokenURI(3)))
 
                 // TODO: test changing ERC20 restrictions
             });
@@ -796,7 +796,7 @@ describe("TradeableFlow", function () {
                     userStatuses[userList[i]] = {"tokens":[],"fDAI":0,"fUSDC":0,"fTUSD":0,"paymentToken":null}
                 }
 
-                for (var i = 0; i < 100; i++) {
+                for (var i = 0; i < 400; i++) {
                     userStatuses = await randomAction(userList,userStatuses,-1);
                 }
             })

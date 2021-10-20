@@ -41,12 +41,12 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
 
   constructor (
     address _owner,
+    address _drip,
     string memory _name,
     string memory _symbol,
     string memory _baseURI,
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
-    address _ERC20MintRestrict,
     int96 _affiliatePortion,
     string memory registrationKey
   )
@@ -117,6 +117,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       override(ERC721, ERC721URIStorage)
       returns (string memory)
   {
+      require(_exists(tokenId),"!exist");
       if (bytes(_baseURI()).length > 0) {
         return string(
               abi.encodePacked(
@@ -216,6 +217,8 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   ) external onlyOwner {
     // Makeshift solution - if the address provided is not a super token, this will error out
     require(_ap.host == ISuperfluid(supertoken.getHost()),"!host");
+    // Super token must have not already been set as a valid super token
+    require(!_ap.acceptedTokens[supertoken],"alreadyset");
 
     _ap.acceptedTokensList.push(supertoken);
     _ap.acceptedTokens[supertoken] = true;
