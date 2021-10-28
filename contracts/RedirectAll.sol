@@ -30,8 +30,8 @@ contract RedirectAll is SuperAppBase {
     TradeableFlowStorage.AffiliateProgram internal _ap;
     TradeableFlowStorage.TempContextData internal _tcd;
 
-    event flowCreated(address indexed subscriber, int96 flowRate); 
-    event flowUpdated(address indexed subscriber, int96 flowRate);
+    event flowCreated(address indexed subscriber, int96 flowRate, uint256 tokenId); 
+    event flowUpdated(address indexed subscriber, int96 flowRate, uint256 tokenId);
 
     constructor(
         ISuperfluid host,
@@ -142,7 +142,7 @@ contract RedirectAll is SuperAppBase {
         // Update the subscribers super token for payment
         _ap.subscribers[subscriber].paymentToken = supertoken;
 
-        emit flowCreated(subscriber , newFlowFromSubscriber);
+        emit flowCreated(subscriber , newFlowFromSubscriber, _ap.referralcodeToToken[affCode]);
 
     }
 
@@ -201,7 +201,9 @@ contract RedirectAll is SuperAppBase {
             // recreating the flow back to the affiliate/owner. So basically, we're just restarting the flow they deleted because we're not allowed to prevent them from deleting
             // "app" here is really the rogue affiliate/owner
 
-            // TODO: control for updating to same amount and having a intended error, not just this convenient self flow reversion
+            // Control for updating to same amount and having a intended error, not just this convenient self flow reversion
+            require(netFlow != 0,"updatedToSameFlow");
+
             newCtx = _createFlow(app,netFlow,supertoken,newCtx);
 
         }
@@ -224,7 +226,7 @@ contract RedirectAll is SuperAppBase {
             delete _ap.subscribers[subscriber]; // does this create an issue by creating a gap in the subscribers array?
         }
 
-        emit flowUpdated(subscriber, newFlowFromSubscriber);
+        emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);
 
     }
 

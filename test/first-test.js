@@ -68,7 +68,7 @@ describe("TradeableFlow", function () {
             });
         }
 
-        // Deploy and Initialize Superfluid JS SDK framework with fDAI token
+        // Deploy and Initialize Superfluid JS SDK framework with token
         sf = new SuperfluidSDK.Framework({
             web3,
             version: "test",
@@ -87,10 +87,6 @@ describe("TradeableFlow", function () {
         // Constructing a user dictionary with the below mapping of aliases to Superfluid user objects
         // Constructing a alias diction with the mapping of addresses to aliases
         for (var i = 0; i < names.length; i++) {
-            // user_directory[names[i].toLowerCase()] = sf.user({
-            //     address: accounts[i],
-            //     token: daix.address,
-            // });
             user_directory[names[i].toLowerCase()] = accounts[i];
             // user_directory[names[i].toLowerCase()].alias = names[i];
             alias_directory[user_directory[names[i].toLowerCase()]] = names[i];
@@ -155,14 +151,19 @@ describe("TradeableFlow", function () {
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // await app.setERC20MintRestriction(0,uwl.address, {from:user_directory.admin})   // ERC20Restrict token
-        // await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
-        // await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
-        // await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
+        await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+        await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
-        // Create Superfluid user for TradeableFlow contract
+        // Create user directory record for TradeableFlow contract
         user_directory.app = app.address
 
-        //
+        // let transferFilter = {
+        //     address : app.address,
+        //     topics : [
+        //         id("Transfer(address,address,uint256)")
+        //     ]
+        // }
 
     });
 
@@ -362,6 +363,8 @@ describe("TradeableFlow", function () {
             moddedUserStatuses[randomUser]["tokens"] = nfts.filter(token => token !== randomNFTForTransfer)
             // Add to randomDestinationUser's list
             moddedUserStatuses[randomDestinationUser]["tokens"].push(randomNFTForTransfer)
+
+            console.log(await app.filters.Transfer())
             
             await logUsers(userList)
 
@@ -567,9 +570,9 @@ describe("TradeableFlow", function () {
             "restrict owner flow":false,
             "locking app":false,
             "balance sweep":false,
-            "random test":true,
+            "random test":false,
             "monetization testing":false,
-            "adhoc":false
+            "adhoc":true
         }
 
         if (switchBoard["NFT Testing"]) {

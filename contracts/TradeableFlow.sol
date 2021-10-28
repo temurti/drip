@@ -37,6 +37,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   string private baseURI;                                        // Base URI pointing to Drip asset database
 
   event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
+  event newBaseURISet(string baseURI);
   event appLocked();
 
   constructor (
@@ -188,6 +189,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   */
   function setBaseURI(string memory newBaseURI) external onlyOwner {
       baseURI = newBaseURI;
+      emit newBaseURISet(newBaseURI);
   }
 
   /**
