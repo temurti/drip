@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -19,7 +20,7 @@ Changing the owner would cause serious issues with users creating/updating their
 
 /// @author Drip Finance
 /// @title Affiliate Cashflow NFT
-contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
+contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAll {
 
   using Strings for uint256;                                    // clever package which lets you cast uints to strings
   using Counters for Counters.Counter;
@@ -146,6 +147,13 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
       super._burn(tokenId);
   }
 
+    /**
+  @dev overriding supportsInterface due duplication in inherited ERC721 and ERC721URIStorage
+  */
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, ERC721Enumerable) returns (bool) {
+      super.supportsInterface(interfaceId);
+  }
+
   /**
   @notice Token transfer callback - redirects existing flows to new affiliate
   @dev Redirects flows by calling _changeReceiver function in RedirectAll inheritance. NFT can't be transferred to owner
@@ -157,7 +165,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     address from,
     address to,
     uint256 tokenId
-  ) internal override {
+  ) internal override(ERC721, ERC721Enumerable) {
     require(to != _ap.owner,"!own");
     if (from != address(0)) {
       _changeReceiver(from, to, tokenId);
@@ -317,7 +325,7 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
     return _ap.referralcodeToToken[referralCode];
   }
 
-    /**
+  /**
   @notice Gets referral associated with a token Id code
   @param tokenId The token ID whose referral code is in concern
   @return referral code
@@ -325,5 +333,21 @@ contract TradeableFlow is ERC721, ERC721URIStorage, RedirectAll {
   function getAffiliateCodeFromTokenId(uint256 tokenId) external view returns (string memory) {
     return _ap.tokenToReferralCode[tokenId];
   }
+
+  /**
+  @notice Gets many affiliate codes from many token Ids
+  @param tokenIds array of token IDs whos referral codes are in concern
+  @return referral codes
+  */
+  function getAffiliateCodesFromTokenIds(uint256[] memory tokenIds) external view returns (string[] memory) {
+    string[] memory referralCodes = new string[](tokenIds.length);
+
+    for (uint tokenId=0; tokenId<tokenIds.length; tokenId++) {
+      referralCodes[tokenId]  = _ap.tokenToReferralCode[tokenIds[tokenId]];
+    }
+  
+    return referralCodes;
+  }
+
 
 }

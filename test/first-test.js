@@ -151,9 +151,9 @@ describe("TradeableFlow", function () {
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // await app.setERC20MintRestriction(0,uwl.address, {from:user_directory.admin})   // ERC20Restrict token
-        await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
         // Create user directory record for TradeableFlow contract
         user_directory.app = app.address
@@ -364,7 +364,7 @@ describe("TradeableFlow", function () {
             // Add to randomDestinationUser's list
             moddedUserStatuses[randomDestinationUser]["tokens"].push(randomNFTForTransfer)
 
-            console.log(await app.filters.Transfer())
+            // console.log(await app.filters.Transfer())
             
             await logUsers(userList)
 
@@ -572,7 +572,8 @@ describe("TradeableFlow", function () {
             "balance sweep":false,
             "random test":false,
             "monetization testing":false,
-            "adhoc":true
+            "adhoc":false,
+            "refcodes getter":true
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -1088,6 +1089,39 @@ describe("TradeableFlow", function () {
                 await logUsers(userList); 
 
             })
+        }
+
+        if (switchBoard["refcodes getter"]) {
+
+            it("refcodes getter", async () => {
+                
+                const { admin, alice, bob, carol, dan, emma, frank } = user_directory
+                userList = [admin, alice, bob, carol, dan, emma, frank] 
+        
+                // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
+                await app.mint("Beluga", {from:emma})
+                await app.mint("Dolphin", {from:emma})
+                await app.mint("Oyster", {from:dan})
+
+                let w = await app.getAffiliateCodesFromTokenIds([1,3])
+
+                console.log(w)
+
+                let x = await app.getAffiliateCodesFromTokenIds([1,3])
+
+                console.log(x)
+
+                let y = await app.getAffiliateCodesFromTokenIds([2,1,3])
+
+                console.log(y)
+
+                let z = await app.getAffiliateCodesFromTokenIds([2])
+
+                console.log(z)
+
+
+            })
+        
         }
 
     });
