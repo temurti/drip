@@ -143,9 +143,7 @@ contract RedirectAll is SuperAppBase {
         // Update the subscribers super token for payment
         _ap.subscribers[subscriber].paymentToken = supertoken;
 
-        // Update the tokenToSubscribers mapping for reading
-        // Will create redudancy if subscriber subscribed with this token before but cancelled
-        // this redudancy is accounted for when using getSubscribersFromTokenId in TradeableFlow
+        // Update the tokenToSubscribers mapping/array for reading
         _ap.tokenToSubscribersArray[tokenId].push(subscriber);
         _ap.tokenToSubscribersMapping[tokenId][subscriber] = true;
 
@@ -229,12 +227,9 @@ contract RedirectAll is SuperAppBase {
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
 
         // if the subscriber is deleting his/her flow, delete their profile
-        // if this subscriber had subscribed with an affiliate code and subscribes again with this token, a redudancy will appear in _ap.tokenToSubscribers
-        // this redudancy is accounted for when using getSubscribersFromTokenId in TradeableFlow 
         if (newFlowFromSubscriber == 0) {
-            _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber] = false;
+            delete _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber];
             delete _ap.subscribers[subscriber];
-            // _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber] = false;
         }
 
         emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);

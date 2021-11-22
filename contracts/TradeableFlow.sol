@@ -358,20 +358,14 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   /**
   Get all subscribers from a token Id
   @param tokenId token ID whos subscribers are in concern
-  @dev parse for and remove even duplicates (i.e. if an address appears 2x, remove, if it appears 3x, keep it once)
+  @dev parse for and remove even duplicates. zero addresses should also be removed from output
   @return subscribers
   */
   function getSubscribersFromTokenId(uint256 tokenId) external view returns (address[] memory) {
     address[] memory subscribers = new address[](_ap.tokenToSubscribersArray[tokenId].length);
     address[] memory subscribersArrayStorage = _ap.tokenToSubscribersArray[tokenId];
 
-    // iterate across the historical array of subscribers (duplicates and all)
     for (uint subscriberIndex=0; subscriberIndex<subscribersArrayStorage.length; subscriberIndex++) {
-
-        console.logAddress(subscribersArrayStorage[subscriberIndex]);
-        console.logBool(_ap.tokenToSubscribersMapping[tokenId][ subscribersArrayStorage[subscriberIndex] ]);
-
-      // if the subscriber is marked as active under the token id then allow it to be added to the output array
       if (_ap.tokenToSubscribersMapping[tokenId][ subscribersArrayStorage[subscriberIndex] ]) {
         subscribers[subscriberIndex] = subscribersArrayStorage[subscriberIndex];
       }
