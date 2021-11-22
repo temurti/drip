@@ -7,6 +7,11 @@ export const tradeableFlowABI = [
         "type": "address"
       },
       {
+        "internalType": "address",
+        "name": "_drip",
+        "type": "address"
+      },
+      {
         "internalType": "string",
         "name": "_name",
         "type": "string"
@@ -37,9 +42,9 @@ export const tradeableFlowABI = [
         "type": "int96"
       },
       {
-        "internalType": "address",
-        "name": "_drip",
-        "type": "address"
+        "internalType": "string",
+        "name": "registrationKey",
+        "type": "string"
       }
     ],
     "stateMutability": "nonpayable",
@@ -159,6 +164,12 @@ export const tradeableFlowABI = [
         "internalType": "int96",
         "name": "flowRate",
         "type": "int96"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "flowCreated",
@@ -178,9 +189,28 @@ export const tradeableFlowABI = [
         "internalType": "int96",
         "name": "flowRate",
         "type": "int96"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "flowUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "baseURI",
+        "type": "string"
+      }
+    ],
+    "name": "newBaseURISet",
     "type": "event"
   },
   {
@@ -597,6 +627,25 @@ export const tradeableFlowABI = [
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "tokenIds",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "getAffiliateCodesFromTokenIds",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "",
+        "type": "string[]"
       }
     ],
     "stateMutability": "view",
@@ -1023,6 +1072,49 @@ export const tradeableFlowABI = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenByIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenOfOwnerByIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
       }
@@ -1033,6 +1125,19 @@ export const tradeableFlowABI = [
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

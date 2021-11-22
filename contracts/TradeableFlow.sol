@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
+import "hardhat/console.sol";
+
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -167,6 +169,10 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     uint256 tokenId
   ) internal override(ERC721, ERC721Enumerable) {
     require(to != _ap.owner,"!own");
+
+    //this should be added
+    super._beforeTokenTransfer(from, to, tokenId);
+
     if (from != address(0)) {
       _changeReceiver(from, to, tokenId);
     }
@@ -349,5 +355,30 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     return referralCodes;
   }
 
+  /**
+  Get all subscribers from a token Id
+  @param tokenId token ID whos subscribers are in concern
+  @dev parse for and remove even duplicates (i.e. if an address appears 2x, remove, if it appears 3x, keep it once)
+  @return subscribers
+  */
+  function getSubscribersFromTokenId(uint256 tokenId) external view returns (address[] memory) {
+    address[] memory subscribers = new address[](_ap.tokenToSubscribersArray[tokenId].length);
+    address[] memory subscribersArrayStorage = _ap.tokenToSubscribersArray[tokenId];
+
+    // iterate across the historical array of subscribers (duplicates and all)
+    for (uint subscriberIndex=0; subscriberIndex<subscribersArrayStorage.length; subscriberIndex++) {
+
+        console.logAddress(subscribersArrayStorage[subscriberIndex]);
+        console.logBool(_ap.tokenToSubscribersMapping[tokenId][ subscribersArrayStorage[subscriberIndex] ]);
+
+      // if the subscriber is marked as active under the token id then allow it to be added to the output array
+      if (_ap.tokenToSubscribersMapping[tokenId][ subscribersArrayStorage[subscriberIndex] ]) {
+        subscribers[subscriberIndex] = subscribersArrayStorage[subscriberIndex];
+      }
+    }
+
+    return subscribers;
+    
+  }
 
 }

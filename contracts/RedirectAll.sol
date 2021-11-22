@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -100,10 +100,11 @@ contract RedirectAll is SuperAppBase {
         // If there is affiliation, the if-else below will override it to currentFlow + newFlowFromSubscriber, less the affiliate portion
         int96 newFlowToOwner = currentFlowToOwner + newFlowFromSubscriber;
 
+        // Get tokenId associated with the affiliate code (only relevant if there is user data)
+        uint256 tokenId = _ap.referralcodeToToken[affCode];
+
         // If there is user data:
         if ( keccak256( bytes(affCode) ) != keccak256( bytes("") ) ) {
-            // Get tokenId associated with the affiliate code
-            uint256 tokenId = _ap.referralcodeToToken[affCode];
             // Get [affiliate] address associated with tokenId
             address affiliate = _ap.tokenToAffiliate[tokenId];
             // If the affiliate address is not empty (so it's a valid referral code)
@@ -141,6 +142,12 @@ contract RedirectAll is SuperAppBase {
 
         // Update the subscribers super token for payment
         _ap.subscribers[subscriber].paymentToken = supertoken;
+
+        // Update the tokenToSubscribers mapping for reading
+        // Will create redudancy if subscriber subscribed with this token before but cancelled
+        // this redudancy is accounted for when using getSubscribersFromTokenId in TradeableFlow
+        _ap.tokenToSubscribersArray[tokenId].push(subscriber);
+        _ap.tokenToSubscribersMapping[tokenId][subscriber] = true;
 
         emit flowCreated(subscriber , newFlowFromSubscriber, _ap.referralcodeToToken[affCode]);
 
@@ -198,12 +205,12 @@ contract RedirectAll is SuperAppBase {
         else if (changeInFlowSubscriber == 0) {
             // get the net flow for the application. This will get the outward flow that was lost from the affiliate/owner cancelling
             int96 netFlow = _ap.cfa.getNetFlow(supertoken,address(this));
-            // recreating the flow back to the affiliate/owner. So basically, we're just restarting the flow they deleted because we're not allowed to prevent them from deleting
-            // "app" here is really the rogue affiliate/owner
 
             // Control for updating to same amount and having a intended error, not just this convenient self flow reversion
             require(netFlow != 0,"updatedToSameFlow");
 
+            // recreating the flow back to the affiliate/owner. So basically, we're just restarting the flow they deleted because we're not allowed to prevent them from deleting
+            // "app" here is really the rogue affiliate/owner
             newCtx = _createFlow(app,netFlow,supertoken,newCtx);
 
         }
@@ -222,8 +229,12 @@ contract RedirectAll is SuperAppBase {
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
 
         // if the subscriber is deleting his/her flow, delete their profile
+        // if this subscriber had subscribed with an affiliate code and subscribes again with this token, a redudancy will appear in _ap.tokenToSubscribers
+        // this redudancy is accounted for when using getSubscribersFromTokenId in TradeableFlow 
         if (newFlowFromSubscriber == 0) {
-            delete _ap.subscribers[subscriber]; // does this create an issue by creating a gap in the subscribers array?
+            _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber] = false;
+            delete _ap.subscribers[subscriber];
+            // _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber] = false;
         }
 
         emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);

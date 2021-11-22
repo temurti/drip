@@ -31,6 +31,8 @@ library TradeableFlowStorage  {
     mapping(string => uint256) referralcodeToToken;                                     // Maps referral code to tokenIds
     mapping(uint256 => string) tokenToReferralCode;                                     // Maps tokenIds to referral code
     mapping(uint256 => address) tokenToAffiliate;                                       // Maps NFT token ID to affiliate address
+    mapping(uint256 => address[]) tokenToSubscribersArray;                              // Maps NFT token ID to subscribers who used its referral code for querying
+    mapping(uint256 => mapping(address => bool)) tokenToSubscribersMapping;
     mapping(address => SubscriberProfile) subscribers;                                  // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
     mapping(uint256 => mapping(ISuperToken => int96)) tokenToPaymentTokentoOutflowRate; // Maps NFT token ID to outflow rate for each token to for tracking when transferring
     int96 affiliatePortion;                                                             // Portion of referred subscriber revenue that corresponding affiliates receive ( affiliatePortion / 10000 ) should equal desired portion. If this is greater than 10000, contract will NOT work
