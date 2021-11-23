@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -21,14 +21,15 @@ import {
 } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
 
 import "./TradeableFlowStorage.sol";
+import "./AddrArrayLib.sol";
 
 /// @author Drip Finance
 /// @title Flow Redirection
 contract RedirectAll is SuperAppBase {
 
-    using TradeableFlowStorage for TradeableFlowStorage.AffiliateProgram;
     TradeableFlowStorage.AffiliateProgram internal _ap;
     TradeableFlowStorage.TempContextData internal _tcd;
+    using AddrArrayLib for AddrArrayLib.Addresses;
 
     event flowCreated(address indexed subscriber, int96 flowRate, uint256 tokenId); 
     event flowUpdated(address indexed subscriber, int96 flowRate, uint256 tokenId);
@@ -143,9 +144,8 @@ contract RedirectAll is SuperAppBase {
         // Update the subscribers super token for payment
         _ap.subscribers[subscriber].paymentToken = supertoken;
 
-        // Update the tokenToSubscribers mapping/array for reading
-        _ap.tokenToSubscribersArray[tokenId].push(subscriber);
-        _ap.tokenToSubscribersMapping[tokenId][subscriber] = true;
+        // Update the tokenToSubscribers mapping for reading
+        _ap.tokenToSubscribers[tokenId].pushAddress(subscriber);
 
         emit flowCreated(subscriber , newFlowFromSubscriber, _ap.referralcodeToToken[affCode]);
 
@@ -226,13 +226,14 @@ contract RedirectAll is SuperAppBase {
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
 
+        // Emitting flowUpdated before below if-statement such that 
+        emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);
+
         // if the subscriber is deleting his/her flow, delete their profile
         if (newFlowFromSubscriber == 0) {
-            delete _ap.tokenToSubscribersMapping[_ap.subscribers[subscriber].tokenId][subscriber];
+            _ap.tokenToSubscribers[_ap.subscribers[subscriber].tokenId].removeAddress(subscriber);
             delete _ap.subscribers[subscriber];
         }
-
-        emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);
 
     }
 

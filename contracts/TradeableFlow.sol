@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -12,7 +12,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import {TradeableFlowStorage} from "./TradeableFlowStorage.sol";
+import "./TradeableFlowStorage.sol";
+import "./AddrArrayLib.sol";
 
 /*
 NOTE: We do not use Ownable. The Ownable contract makes ownership mutable. 
@@ -26,6 +27,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
 
   using Strings for uint256;                                    // clever package which lets you cast uints to strings
   using Counters for Counters.Counter;
+  using AddrArrayLib for AddrArrayLib.Addresses;
   Counters.Counter tokenIds;
 
   address public owner;                                         // Public owner address for visibility
@@ -362,17 +364,9 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   @return subscribers
   */
   function getSubscribersFromTokenId(uint256 tokenId) external view returns (address[] memory) {
-    address[] memory subscribers = new address[](_ap.tokenToSubscribersArray[tokenId].length);
-    address[] memory subscribersArrayStorage = _ap.tokenToSubscribersArray[tokenId];
 
-    for (uint subscriberIndex=0; subscriberIndex<subscribersArrayStorage.length; subscriberIndex++) {
-      if (_ap.tokenToSubscribersMapping[tokenId][ subscribersArrayStorage[subscriberIndex] ]) {
-        subscribers[subscriberIndex] = subscribersArrayStorage[subscriberIndex];
-      }
-    }
+    return _ap.tokenToSubscribers[tokenId].getAllAddresses();
 
-    return subscribers;
-    
   }
 
 }
