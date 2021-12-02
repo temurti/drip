@@ -25,24 +25,26 @@ Changing the owner would cause serious issues with users creating/updating their
 /// @title Affiliate Cashflow NFT
 contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAll {
 
-  using Strings for uint256;                                    // clever package which lets you cast uints to strings
+  using Strings for uint256;                                                    // clever package which lets you cast uints to strings
   using Counters for Counters.Counter;
   using AddrArrayLib for AddrArrayLib.Addresses;
   Counters.Counter tokenIds;
 
-  address public owner;                                         // Public owner address for visibility
+  address public owner;                                                         // Public owner address for visibility
 
-  address public drip;                                          // sets address of Drip wallet
-  int96 public dripSubscriptionRequirement;                     // sets the required rate the program owner must be paying
-  ISuperToken public dripPaymentToken;                          // payment token that program owner uses to pay for using Drip
+  address public drip;                                                          // sets address of Drip wallet
+  int96 public dripSubscriptionRequirement;                                     // sets the required rate the program owner must be paying
+  ISuperToken public dripPaymentToken;                                          // payment token that program owner uses to pay for using Drip
 
-  address public ERC20MintRestrict;                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
-  uint256 public ERC20MintRestrictBalanceRequirement;           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
+  address public ERC20MintRestrict;                                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
+  uint256 public ERC20MintRestrictBalanceRequirement;                           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
+  
+  mapping(ISuperToken => uint256) public superTokenDeposit;                     // How much super token is deposited when setNewAcceptedToken() is called
 
-  string private baseURI;                                        // Base URI pointing to Drip asset database
+  string private baseURI;                                                       // Base URI pointing to Drip asset database
 
   event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
-  event newBaseURISet(string baseURI);
+  event newBaseURISet(string baseURI);                                          
   event appLocked();
 
   constructor (
@@ -223,6 +225,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
 
   /**
   @notice Allows owner to set new super token acceptable for payment in affiliate program.
+  @notice Takes a deposit of the new super token from the caller (owner)
   @dev Tokens CANNOT be unset as acceptable
   @param supertoken New super token to be accepted for payment
 
@@ -237,7 +240,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     require(_ap.host == ISuperfluid(supertoken.getHost()),"!host");
     // Super token must have not already been set as a valid super token
     require(!_ap.acceptedTokens[supertoken],"alreadyset");
-
+  
     _ap.acceptedTokensList.push(supertoken);
     _ap.acceptedTokens[supertoken] = true;
   }
