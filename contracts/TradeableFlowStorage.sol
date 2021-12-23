@@ -36,7 +36,7 @@ library TradeableFlowStorage  {
     mapping(address => SubscriberProfile) subscribers;                                  // Maps subscriber to [how much subscriber is streaming into the app] + [the affiliate who referred the subscriber]
     mapping(uint256 => mapping(ISuperToken => int96)) tokenToPaymentTokentoOutflowRate; // Maps NFT token ID to outflow rate for each token to for tracking when transferring
     int96 affiliatePortion;                                                             // Portion of referred subscriber revenue that corresponding affiliates receive ( affiliatePortion / 10000 ) should equal desired portion. If this is greater than 10000, contract will NOT work
-    bool locked;                                                                        // whether or not the program has been locked in the event of an emergency, bug, etc.
+    bool locked;                                                                        // whether or not the program has been locked in the event of cancellation, an emergency, bug, etc.
   }
 
   // Storage struct used to avoid stack too deep error

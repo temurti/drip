@@ -108,6 +108,8 @@ contract RedirectAll is SuperAppBase {
         if ( keccak256( bytes(affCode) ) != keccak256( bytes("") ) ) {
             // Get [affiliate] address associated with tokenId
             address affiliate = _ap.tokenToAffiliate[tokenId];
+            // NEW ADDITION (12/22) - affiliate cannot refer him/herself
+            require(affiliate != subscriber,"!selfReferral");
             // If the affiliate address is not empty (so it's a valid referral code)
             if (affiliate != address(0)) {
                 // Get old flowRate to [affiliate] in affiliate => outflow mapping
@@ -226,7 +228,7 @@ contract RedirectAll is SuperAppBase {
         // update a mapping of subscriber => SubscriberProfile.inflowRate
         _ap.subscribers[subscriber].inflowRate = newFlowFromSubscriber;
 
-        // Emitting flowUpdated before below if-statement such that 
+        // Emitting flowUpdated before below if-statement such that if flow's deleted, you can still see for what token id it was deleted
         emit flowUpdated(subscriber, newFlowFromSubscriber, _ap.subscribers[subscriber].tokenId);
 
         // if the subscriber is deleting his/her flow, delete their profile

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 import {RedirectAll, ISuperToken, IConstantFlowAgreementV1, ISuperfluid} from "./RedirectAll.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -15,37 +15,39 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "./TradeableFlowStorage.sol";
 import "./AddrArrayLib.sol";
 
-/*
-NOTE: We do not use Ownable. The Ownable contract makes ownership mutable. 
-Ownership is expected to remain fixed for the program as the owner address is the one receiving the revenue.
-Changing the owner would cause serious issues with users creating/updating their flows.
-*/
-
 /// @author Drip Finance
 /// @title Affiliate Cashflow NFT
 contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAll {
 
+  // Packages
   using Strings for uint256;                                                    // clever package which lets you cast uints to strings
   using Counters for Counters.Counter;
   using AddrArrayLib for AddrArrayLib.Addresses;
   Counters.Counter tokenIds;
 
+  // Roles
   address public owner;                                                         // Public owner address for visibility
-
-  address public drip;                                                          // sets address of Drip wallet
-  int96 public dripSubscriptionRequirement;                                     // sets the required rate the program owner must be paying
-  ISuperToken public dripPaymentToken;                                          // payment token that program owner uses to pay for using Drip
-
+  address public drip;                                                          // Sets address of Uniwhale's presiding Drip wallet
+ 
+  // ERC20 Limitation Option
   address public ERC20MintRestrict;                                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
   uint256 public ERC20MintRestrictBalanceRequirement;                           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
+
   
-  mapping(ISuperToken => uint256) public superTokenDeposit;                     // How much super token is deposited when setNewAcceptedToken() is called
+  struct AffiliateMintingStatus {                                               // Data on permission to mint (whitelisted) and amount minted so far (quantityMinted)
+    bool whitelisted;
+    uint256 quantityMinted;
+  }
+  mapping(address => AffiliateMintingStatus) public whitelist;                  // Addresses authorized to mint
+  bool public whitelistActive;                                                  // Whether or not whitelist is active
+  uint256 public mintLimit;                                                     // Amount of NFTs a whitelisted address is allowed to mint
 
   string private baseURI;                                                       // Base URI pointing to Drip asset database
 
   event NewAffiliateLink(uint indexed tokenId, address indexed affiliate);      // Emitted when a new affiliate link is created
-  event newBaseURISet(string baseURI);                                          
-  event appLocked();
+  event NewBaseURISet(string baseURI);                                          
+  event AppLocked();
+  event SetWhiteList(address newMinter, bool status);
 
   constructor (
     address _owner,
@@ -72,14 +74,24 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     baseURI = _baseURI;
   }
 
-  modifier hasEnoughERC20Restrict() {
-    // Must own enough of the designated ERC20 token to mint an affiliate NFT
+  modifier WhitelistRestriction() {
+    if (whitelistActive) {
+      require( whitelist[msg.sender].whitelisted == true, "!whitelisted" );
+      require( mintLimit > whitelist[msg.sender].quantityMinted, "!mintLimit" );
+    }
+    whitelist[msg.sender].quantityMinted += 1;
+    _;
+  }
+
+  /// Must own enough of the designated ERC20 token to mint an affiliate NFT
+  modifier ERC20Restriction() {
     if (ERC20MintRestrict != address(0)) {
       require(IERC20(ERC20MintRestrict).balanceOf(msg.sender) >= ERC20MintRestrictBalanceRequirement, "!bal"); 
     }
     _;
   }
 
+  /// Only the Drip 
   modifier onlyAuthorizedLocker() {
     require(msg.sender == drip || msg.sender == _ap.owner, "!auth");
     _;
@@ -90,7 +102,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   @param referralCode URI, which also serves as referral code
   @return tokenId Token ID of minted affiliate NFT
   */
-  function mint(string memory referralCode) external hasEnoughERC20Restrict returns (uint256 tokenId) {
+  function mint(string memory referralCode) external ERC20Restriction WhitelistRestriction returns (uint256 tokenId) {
     require(msg.sender != _ap.owner, "!own");                                     // Shouldn't be minting affiliate NFTs to contract deployer
     require(_ap.referralcodeToToken[referralCode] == 0, "!uri");                  // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
     require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ),"blank");  // We don't want to be minting an affiliate NFT with blank referral code
@@ -189,7 +201,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   */
   function lock() external onlyAuthorizedLocker {
     _ap.locked = true;
-    emit appLocked();
+    emit AppLocked();
   }
 
   /**
@@ -202,12 +214,30 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   }
 
   /**
+  @notice Sets up whitelist of authorized minters
+  @param newMinter new minter authorized to mint an NFT
+  */
+  function setWhiteList(address newMinter, bool status) external onlyOwner {
+    require(newMinter != address(0),"!zeroAddr");
+    whitelist[newMinter].whitelisted = status;
+    emit SetWhiteList(newMinter, status);
+  }
+
+  /**
+  @notice Switches whitelist restriction statu
+  */
+  function setWhiteListStatus(bool newStatus, uint256 newMintLimit) external onlyOwner {
+    whitelistActive = newStatus;
+    mintLimit = newMintLimit;
+  }
+
+  /**
   @notice Reset NFT base URIs
   @param newBaseURI new base URI to be used
   */
   function setBaseURI(string memory newBaseURI) external onlyOwner {
       baseURI = newBaseURI;
-      emit newBaseURISet(newBaseURI);
+      emit NewBaseURISet(newBaseURI);
   }
 
   /**
@@ -225,7 +255,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
 
   /**
   @notice Allows owner to set new super token acceptable for payment in affiliate program.
-  @notice Takes a deposit of the new super token from the caller (owner)
+  @notice Setting a token needs a deposit of the new super token from the caller (owner) so app does not become insolvent
   @dev Tokens CANNOT be unset as acceptable
   @param supertoken New super token to be accepted for payment
 

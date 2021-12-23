@@ -151,9 +151,9 @@ describe("TradeableFlow", function () {
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // await app.setERC20MintRestriction(0,uwl.address, {from:user_directory.admin})   // ERC20Restrict token
-        await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
-        await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+        // await app.setNewAcceptedToken(token_directory['fTUSD']['supertoken'].address ,{from:user_directory.admin})
 
         // Create user directory record for TradeableFlow contract
         user_directory.app = app.address
@@ -570,10 +570,11 @@ describe("TradeableFlow", function () {
             "restrict owner flow":false,
             "locking app":false,
             "balance sweep":false,
-            "random test":false,
+            "random test":true,
             "monetization testing":false,
-            "adhoc":true,
-            "refcodes getter":false
+            "adhoc":false,
+            "refcodes getter":false,
+            "whitelist testing":false
         }
 
         if (switchBoard["NFT Testing"]) {
@@ -1125,6 +1126,75 @@ describe("TradeableFlow", function () {
 
             })
         
+        }
+
+        if (switchBoard["whitelist testing"]) {
+
+            it("whitelist testing", async () => {
+
+                const { admin, alice, bob, carol, dan, emma, frank } = user_directory
+                userList = [admin, alice, bob, carol, dan, emma, frank]
+
+                // Turn on whitelist with limit of 1 NFT per address
+                await app.setWhiteListStatus(true, 1, {from:admin})
+
+                // Set whitelisted addresses
+                await app.setWhiteList(alice,true,{from:admin})
+                await app.setWhiteList(bob,true,{from:admin})
+                await app.setWhiteList(carol,true,{from:admin})
+
+                // Let Alice, Bob, and Carol try minting
+                await app.mint("Beluga", {from:alice})
+                await app.mint("Dolphin", {from:bob})
+                await app.mint("Oyster", {from:carol})
+                console.log("Alice, Bob, Carol finish minting")
+
+                // Let them try minting again, expecting reversion because limit is one
+                await expect( app.mint("Belug", {from:alice}) ).to.be.revertedWith("!mintLimit");
+                await expect( app.mint("Dolphi", {from:alice}) ).to.be.revertedWith("!mintLimit");
+                console.log("Alice 2nd mint reverts")
+                await expect( app.mint("Dolphi", {from:bob}) ).to.be.revertedWith("!mintLimit");
+                console.log("Bob 2nd mint reverts")
+                await expect( app.mint("Oyste", {from:carol}) ).to.be.revertedWith("!mintLimit");
+                console.log("Carol 2nd mint reverts")
+                
+                // Let Dan try minting, expecting reversion
+                await expect( app.mint("Lobster", {from:dan}) ).to.be.revertedWith("!whitelisted");
+                console.log("Dan non-whitelisted mint attempt reverted")
+
+                // Whitelist Dan and then let him try minting
+                await app.setWhiteList(dan,true,{from:admin})
+                app.mint("Whale", {from:dan})
+                console.log("Dan now whitelisted, can mint")
+
+                // Whitelisted Dan tries minting another NFT, reverts
+                await expect( app.mint("Dolphi", {from:dan}) ).to.be.revertedWith("!mintLimit");
+                console.log("Dan 2nd mint reverts")
+
+
+                // Un-whitelist Dan and Bob and let Dan try minting, expecting reversion
+                app.setWhiteList(dan,false,{from:admin})
+                app.setWhiteList(bob,false,{from:admin})
+                await expect( app.mint("BigWhale", {from:dan}) ).to.be.revertedWith("!whitelisted");
+                await expect( app.mint("BigWhale", {from:bob}) ).to.be.revertedWith("!whitelisted");
+
+                // Turn off whitelist
+                await app.setWhiteListStatus(false, await app.mintLimit(), {from:admin})
+
+                // Frank tries minting multiple NFTs
+                await app.mint("Clam", {from:frank})
+                await app.mint("Clam1", {from:frank})
+                await app.mint("Clam2", {from:frank})
+
+                console.log( "Alice Balance:",(await app.balanceOf(alice)).toString() )
+                console.log("Bob Balance:",(await app.balanceOf(bob)).toString() )
+                console.log("Carol Balance:",(await app.balanceOf(carol)).toString() )
+                console.log("Dan Balance:",(await app.balanceOf(dan)).toString() )
+                console.log("Frank Balance:",(await app.balanceOf(frank)).toString() )
+
+
+            })
+
         }
 
     });
