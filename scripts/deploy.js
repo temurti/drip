@@ -32,5 +32,6 @@ async function main() {
 // npx hardhat run scripts/deploy.js --network rinkeby
 // fake UWL: 0xbDfb61f061250a1f6A9e184B7B0EE8d7d4f83cfC
 // second latest DEPLOYED_CONTRACT_ADDRESS: 0x25e69bf13d58b2e166Da273Bba1af03a99F98707
-// latest: 0xBcAfDcFFA41B511521aa3Ba597fc427bDd7Ba52C
-// npx hardhat verify --network rinkeby --constructor-args arguments.js 0xBcAfDcFFA41B511521aa3Ba597fc427bDd7Ba52C
+// latest: 0x603c02f90299A49c009411419c392FE49a6B6096
+// npx hardhat verify --network rinkeby --constructor-args arguments.js 0x603c02f90299A49c009411419c392FE49a6B6096
+// https://hardhat.org/tutorial/deploying-to-a-live-network.html

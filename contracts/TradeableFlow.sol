@@ -103,6 +103,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   @return tokenId Token ID of minted affiliate NFT
   */
   function mint(string memory referralCode) external ERC20Restriction WhitelistRestriction returns (uint256 tokenId) {
+    require(!_ap.locked, "!locked");                                               // Affiliate program shouldn't be locked for minting to occur
     require(msg.sender != _ap.owner, "!own");                                     // Shouldn't be minting affiliate NFTs to contract deployer
     require(_ap.referralcodeToToken[referralCode] == 0, "!uri");                  // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
     require(keccak256( bytes(referralCode) ) != keccak256( bytes("") ),"blank");  // We don't want to be minting an affiliate NFT with blank referral code
@@ -216,6 +217,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   /**
   @notice Sets up whitelist of authorized minters
   @param newMinter new minter authorized to mint an NFT
+  @param status new status of minter address
   */
   function setWhiteList(address newMinter, bool status) external onlyOwner {
     require(newMinter != address(0),"!zeroAddr");
@@ -303,22 +305,6 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   */
   function getAffiliateForSubscriber(address subscriber) external view returns (address) {
     return _ap.tokenToAffiliate[_ap.subscribers[subscriber].tokenId];
-  }
-
-  /**
-  @notice Gets the ERC20 balance requirement imposed on the minting of affiliate NFTs
-  @return ERC20 balance requirement
-  */
-  function getERC20MintRestrictBalanceRequirement() external view returns (uint256) {
-    return ERC20MintRestrictBalanceRequirement;
-  }
-
-  /**
-  @notice Gets the address of ERC20 token needed for minting of affiliate NFTs
-  @return Address of ERC20 token used for restriction
-  */
-  function getERC20MintRestrict() external view returns (address) {
-    return ERC20MintRestrict;
   }
 
   /**

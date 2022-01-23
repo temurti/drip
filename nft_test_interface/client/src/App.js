@@ -173,7 +173,7 @@ class App extends Component {
     var paymentToken = document.getElementById("paymentToken").value
 
     console.log(flowRate)
-    let affiliateCode = this.state.web3.eth.abi.encodeParameter('string',affCode)
+    let affiliateCode = this.state.web3.eth.abi.encodeParameter('uint256',affCode)
 
     console.log(paymentToken)
     

@@ -108,7 +108,7 @@ contract RedirectAll is SuperAppBase {
         if ( keccak256( bytes(affCode) ) != keccak256( bytes("") ) ) {
             // Get [affiliate] address associated with tokenId
             address affiliate = _ap.tokenToAffiliate[tokenId];
-            // NEW ADDITION (12/22) - affiliate cannot refer him/herself
+            // NEW ADDITION (12/22) - affiliate cannot refer him/herself. Doesn't fix much because affiliate can just subscribe with a different address
             require(affiliate != subscriber,"!selfReferral");
             // If the affiliate address is not empty (so it's a valid referral code)
             if (affiliate != address(0)) {
