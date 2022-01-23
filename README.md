@@ -13,11 +13,6 @@ Drip's smart contracts possess 3 components:
 
 # TradeableFlow
 
-        ISuperfluid host,
-        IConstantFlowAgreementV1 cfa,
-        address owner,
-        string memory registrationKey
-
 ### Parameters
 
 ```address _owner``` - (passes to inherited RedirectAll) Program owner (the entity profiting from subscriber revenue)
