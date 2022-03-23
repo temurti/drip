@@ -13,6 +13,7 @@ const TradeableFlow = artifacts.require("TradeableFlow.sol");
 
 const traveler = require("ganache-time-traveler");
 const { assert } = require("hardhat");
+const {expect} = require("chai");
 const ONE_DAY = 3600 * 24;
 const ONE_HOUR = 3600;
 const ONE_MINUTE = 60;
@@ -390,7 +391,6 @@ describe("TradeableFlow", function () {
             console.log(`=== ${alias_directory[randomUser]} mints affiliate NFT with URI: ${randomNFTURI}`)
 
             const hexProof = merkleTree.getHexProof(keccak256(randomUser));
-            console.log({hexProof})
 
             let tokenId = await app.mint(hexProof, randomNFTURI, {from:randomUser})
 
@@ -434,7 +434,7 @@ describe("TradeableFlow", function () {
             // get original inflow rate of randomUser
             // get original outflow rate to admin
             // get original outflow rate to aff associated with randAffCode (TODO: make getTokenIdFromAffiliateCode)
-
+            // await app.setNewAcceptedToken(token_directory[randomPaymentSuperToken]['supertoken'].address ,{from:user_directory.admin})
             await sf.cfa.createFlow({
                 superToken:   token_directory[randomPaymentSuperToken]["supertoken"].address, 
                 sender:       randomUser,
@@ -576,13 +576,13 @@ describe("TradeableFlow", function () {
             "_createOutflow w/ aff, 1 subscribers, NFT transfer": false,
             "_updateOutflow w/ 2 aff, 3 subs (increase then decrease), NFT transfer": false,
             "affiliate being a subscriber as well":false,
-            "testing affiliate and owner flow cancelling":false,
+            "testing affiliate and owner flow cancelling":true,
             "testing setting acceptable token":false,
             "advanced multi-NFT case":false,
             "restrict owner flow":false,
             "locking app":false,
             "balance sweep":false,
-            "random test":true,
+            "random test":false,
             "monetization testing":false,
             "adhoc":false,
             "refcodes getter":false,
@@ -590,20 +590,19 @@ describe("TradeableFlow", function () {
         }
 
         if (switchBoard["NFT Testing"]) {
-
+            
             it("Testing Token Requirements", async () => {
                 const { alice , bob } = user_directory
                 uwl.transfer(bob,10000, {from:alice})
                 await checkTokenBalance(bob,uwl)
-                
-                await app.mint("BlueWhale", {from:bob})
-                await app.mint("Orca", {from:bob})
+                const hexProof = merkleTree.getHexProof(keccak256(bob));
+                await app.mint(hexProof, "BlueWhale", {from:bob})
                 console.log("NFT Balance of Bob:", (await app.balanceOf(bob)).toString() )
-                console.log("URI of NFT:", (await app.tokenURI(3)))
+                console.log("URI of NFT:", (await app.tokenURI(1)))
 
                 // TODO: test changing ERC20 restrictions
+                await expect(app.mint(hexProof, "Orca", {from:bob})).to.be.revertedWith("!mintLimit");
             });
-
         }
 
         if (switchBoard["testing setting acceptable token"]) {
@@ -615,7 +614,8 @@ describe("TradeableFlow", function () {
                 userList = [alice , bob , carol , admin]
 
                 // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
-                await app.mint("BlueWhale", {from:alice})
+                const hexProof = merkleTree.getHexProof(keccak256(alice));
+                await app.mint(hexProof, "BlueWhale", {from:alice})
 
                 // Upgrade all of Alice and Bob's DAI
                 await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
@@ -635,13 +635,15 @@ describe("TradeableFlow", function () {
                 //     userData:     affiliateUserData1});
     
                 // await logUsers(userList);
-                                
-                console.log("=== PART 1: Setting a valid super token (fFRAXx) for payment ===")
-                await app.setNewAcceptedToken(token_directory['fFRAX']['supertoken'].address ,{from:user_directory.admin})
+                console.log({token_directory})
+                console.log("=== PART 1: Setting a valid super token (fDAIx) for payment ===")
+                await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
 
-                console.log("=== PART 2: Setting regular token (fFRAX) for payment - should error out ===")
-                await app.setNewAcceptedToken(token_directory['fFRAX']['regulartoken'].address ,{from:user_directory.admin})
+                console.log("=== PART 2: Setting a valid super token (fUSDC) for payment ===")
+                await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
 
+                console.log("=== PART 3: Setting a super token (fDAIx) for payment again should return error ===")
+                await expect(app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})).to.be.revertedWith("alreadyset");
 
             })
 
@@ -655,7 +657,8 @@ describe("TradeableFlow", function () {
                 userList = [alice , bob , carol , admin]
 
                 // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
-                await app.mint("BlueWhale", {from:alice})
+                const hexProof = merkleTree.getHexProof(keccak256(alice));
+                await app.mint(hexProof, "BlueWhale", {from:alice})
 
                 // Upgrade all of Alice and Bob's DAI
                 await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
@@ -670,14 +673,70 @@ describe("TradeableFlow", function () {
                 // comment out the setNewAcceptedToken lines in beforeEach
                 console.log('=== PART 1: Owner opens up a DAI stream to the app with the affiliate code (should fail) ===')
                 
-                await sf.cfa.createFlow({
+
+                await expect(sf.cfa.createFlow({
                     superToken:   token_directory["fDAI"]["supertoken"].address, 
-                    sender:       admin,
+                    sender:       bob,
                     receiver:     user_directory.app,
                     flowRate:     "10000",
-                    userData:     affiliateUserData1});
-    
+                    userData:     affiliateUserData1})).to.be.revertedWith("RedirectAll: not accepted token");
+                
+                // set Acceptable tokens
+                await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+                await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+                let bobDaiBalance = await token_directory["fDAI"]["supertoken"].balanceOf(bob)
+                console.log("before balance", bobDaiBalance.toString());
+                
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1})
+                
+                bobDaiBalance = await token_directory["fDAI"]["supertoken"].balanceOf(bob)
+                console.log("after balance", bobDaiBalance.toString());
                 await logUsers(userList);
+                
+                await sf.cfa.updateFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "5000",
+                    userData:     affiliateUserData1})
+                await logUsers(userList);
+                
+                bobDaiBalance = await token_directory["fDAI"]["supertoken"].balanceOf(bob)
+                console.log("after balance", bobDaiBalance.toString());
+
+                await sf.cfa.deleteFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    userData:     affiliateUserData1})
+                
+                bobDaiBalance = await token_directory["fDAI"]["supertoken"].balanceOf(bob)
+                console.log("after balance", bobDaiBalance.toString());
+                
+                await logUsers(userList);
+
+                await sf.cfa.createFlow({
+                    superToken:   token_directory["fDAI"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1})
+                
+                bobDaiBalance = await token_directory["fDAI"]["supertoken"].balanceOf(bob)
+                console.log("after balance", bobDaiBalance.toString());
+                await logUsers(userList);
+
+                await expect(sf.cfa.createFlow({
+                    superToken:   token_directory["fUSDC"]["supertoken"].address, 
+                    sender:       bob,
+                    receiver:     user_directory.app,
+                    flowRate:     "10000",
+                    userData:     affiliateUserData1})).to.be.revertedWith("!token");
 
             })
         }
@@ -690,7 +749,8 @@ describe("TradeableFlow", function () {
                 userList = [alice , bob , carol , admin]
 
                 // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
-                await app.mint("BlueWhale", {from:alice})
+                const hexProof = merkleTree.getHexProof(keccak256(alice));
+                await app.mint(hexProof, "BlueWhale", {from:alice})
 
                 // Upgrade all of Alice and Bob's DAI
                 await upgrade([alice,bob,carol,admin],token_directory["fDAI"]["supertoken"]);
@@ -700,13 +760,17 @@ describe("TradeableFlow", function () {
                 await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
                 await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
 
+                // set Acceptable tokens
+                await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+                await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+
                 let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
 
-                console.log('=== PART 1: Alice opens up a DAI stream to the app with the affiliate code ===')
+                console.log('=== PART 1: Bob opens up a DAI stream to the app with the affiliate code ===')
                 
                 await sf.cfa.createFlow({
                     superToken:   token_directory["fDAI"]["supertoken"].address, 
-                    sender:       alice,
+                    sender:       bob,
                     receiver:     user_directory.app,
                     flowRate:     "10000",
                     userData:     affiliateUserData1});
@@ -715,46 +779,36 @@ describe("TradeableFlow", function () {
 
                 console.log('=== PART 2: lock the app  ===')
 
-                await app.setLock(true, {from:user_directory.admin} )
+                await app.lock({from:user_directory.drip})
 
-                // console.log('=== PART 3: Bob tries to open stream to app (should fail)  ===')
+                console.log('=== PART 3: Bob tries to update stream to app (should fail)  ===')
 
-                // await sf.cfa.createFlow({
-                //     superToken:   token_directory["fDAI"]["supertoken"].address, 
-                //     sender:       bob,
-                //     receiver:     user_directory.app,
-                //     flowRate:     "10000",
-                //     userData:     affiliateUserData1});
-    
-                // await logUsers(userList);
+                await expect(sf.cfa.updateFlow({
+                    superToken: token_directory["fDAI"]["supertoken"].address,
+                    sender: bob,
+                    receiver: user_directory.app,
+                    flowRate: "10001"
+                })).to.be.revertedWith("locked");
 
-                console.log('=== PART 3: Alice tries to update stream to app (should fail)  ===')
+                console.log('=== PART 4: unlock the app  ===')
+                await app.unlock({from:user_directory.drip} )
+
+                console.log('=== PART 5: Bob updates stream to app  ===')
 
                 await sf.cfa.updateFlow({
                     superToken: token_directory["fDAI"]["supertoken"].address,
-                    sender: alice,
+                    sender: bob,
                     receiver: user_directory.app,
                     flowRate: "10001"
                 });
 
-                // console.log('=== PART 2: Alice cancels her flow to the app (should succeed)  ===')
-
-                // await sf.cfa.deleteFlow({
-                //     superToken: token_directory["fDAI"]["supertoken"].address,
-                //     sender:     alice,
-                //     receiver:   user_directory.app,
-                //     by:         alice
-                // });
-
-                // await logUsers(userList);
+                await logUsers(userList);
 
                 // console.log('=== PART 3: owner cancel Alice flow  ===')
 
                 // await app._emergencyCloseStream(alice,token_directory["fDAI"]["supertoken"].address,{from:user_directory.admin})
 
                 // await logUsers(userList);
-
-
 
             })
         }
@@ -776,7 +830,7 @@ describe("TradeableFlow", function () {
                 console.log("Before sweep")
                 await checkTokenBalance(user_directory.app,token_directory["fDAI"]["supertoken"])
 
-                await app.setLock(true, {from:user_directory.admin} )
+                await app.lock({from:user_directory.admin} )
 
                 await app.balanceSweep(token_directory["fDAI"]["supertoken"].address,1,{from:admin})
 
@@ -812,9 +866,9 @@ describe("TradeableFlow", function () {
                     userStatuses[userList[i]] = {"tokens":[],"fDAI":0,"fUSDC":0,"fTUSD":0,"paymentToken":null}
                 }
 
-                for (var i = 0; i < 400; i++) {
+                // for (var i = 0; i < 400; i++) {
                     userStatuses = await randomAction(userList,userStatuses,-1);
-                }
+                // }
             })
         }
 
@@ -931,7 +985,8 @@ describe("TradeableFlow", function () {
                 userList = [alice , bob , carol , admin]
         
                 // Mint Alice 10000 $UWL and an affiliate NFT (Alice already has all the $UWL)
-                await app.mint("BlueWhale", {from:alice})
+                let hexProof = merkleTree.getHexProof(keccak256(alice));
+                await app.mint(hexProof, "BlueWhale", {from:alice})
         
                 // Upgrade all of Alice and Bob's DAI
                 await upgrade([alice,bob,carol],token_directory["fDAI"]["supertoken"]);
@@ -940,7 +995,11 @@ describe("TradeableFlow", function () {
                 // Give App a little DAIx so it doesn't get mad over deposit allowance
                 await token_directory["fDAI"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
                 await token_directory["fUSDC"]["supertoken"].transfer(user_directory.app, 100000000000000, {from:alice});
-        
+                
+                // set Acceptable tokens
+                await app.setNewAcceptedToken(token_directory['fDAI']['supertoken'].address ,{from:user_directory.admin})
+                await app.setNewAcceptedToken(token_directory['fUSDC']['supertoken'].address ,{from:user_directory.admin})
+                
                 let affiliateUserData1 = web3.eth.abi.encodeParameter('string',"BlueWhale");
         
                 console.log('=== PART 1: Bob opens up a DAI stream to the app with the affiliate code ===')
@@ -1140,74 +1199,74 @@ describe("TradeableFlow", function () {
         
         }
 
-        if (switchBoard["whitelist testing"]) {
+        // if (switchBoard["whitelist testing"]) {
 
-            it("whitelist testing", async () => {
+        //     it("whitelist testing", async () => {
 
-                const { admin, alice, bob, carol, dan, emma, frank } = user_directory
-                userList = [admin, alice, bob, carol, dan, emma, frank]
+        //         const { admin, alice, bob, carol, dan, emma, frank } = user_directory
+        //         userList = [admin, alice, bob, carol, dan, emma, frank]
 
-                // Turn on whitelist with limit of 1 NFT per address
-                await app.setWhiteListStatus(true, 1, {from:admin})
+        //         // Turn on whitelist with limit of 1 NFT per address
+        //         await app.setWhiteListStatus(true, 1, {from:admin})
 
-                // Set whitelisted addresses
-                await app.setWhiteList(alice,true,{from:admin})
-                await app.setWhiteList(bob,true,{from:admin})
-                await app.setWhiteList(carol,true,{from:admin})
+        //         // Set whitelisted addresses
+        //         await app.setWhiteList(alice,true,{from:admin})
+        //         await app.setWhiteList(bob,true,{from:admin})
+        //         await app.setWhiteList(carol,true,{from:admin})
 
-                // Let Alice, Bob, and Carol try minting
-                await app.mint("Beluga", {from:alice})
-                await app.mint("Dolphin", {from:bob})
-                await app.mint("Oyster", {from:carol})
-                console.log("Alice, Bob, Carol finish minting")
+        //         // Let Alice, Bob, and Carol try minting
+        //         await app.mint("Beluga", {from:alice})
+        //         await app.mint("Dolphin", {from:bob})
+        //         await app.mint("Oyster", {from:carol})
+        //         console.log("Alice, Bob, Carol finish minting")
 
-                // Let them try minting again, expecting reversion because limit is one
-                await expect( app.mint("Belug", {from:alice}) ).to.be.revertedWith("!mintLimit");
-                await expect( app.mint("Dolphi", {from:alice}) ).to.be.revertedWith("!mintLimit");
-                console.log("Alice 2nd mint reverts")
-                await expect( app.mint("Dolphi", {from:bob}) ).to.be.revertedWith("!mintLimit");
-                console.log("Bob 2nd mint reverts")
-                await expect( app.mint("Oyste", {from:carol}) ).to.be.revertedWith("!mintLimit");
-                console.log("Carol 2nd mint reverts")
+        //         // Let them try minting again, expecting reversion because limit is one
+        //         await expect( app.mint("Belug", {from:alice}) ).to.be.revertedWith("!mintLimit");
+        //         await expect( app.mint("Dolphi", {from:alice}) ).to.be.revertedWith("!mintLimit");
+        //         console.log("Alice 2nd mint reverts")
+        //         await expect( app.mint("Dolphi", {from:bob}) ).to.be.revertedWith("!mintLimit");
+        //         console.log("Bob 2nd mint reverts")
+        //         await expect( app.mint("Oyste", {from:carol}) ).to.be.revertedWith("!mintLimit");
+        //         console.log("Carol 2nd mint reverts")
                 
-                // Let Dan try minting, expecting reversion
-                await expect( app.mint("Lobster", {from:dan}) ).to.be.revertedWith("!whitelisted");
-                console.log("Dan non-whitelisted mint attempt reverted")
+        //         // Let Dan try minting, expecting reversion
+        //         await expect( app.mint("Lobster", {from:dan}) ).to.be.revertedWith("!whitelisted");
+        //         console.log("Dan non-whitelisted mint attempt reverted")
 
-                // Whitelist Dan and then let him try minting
-                await app.setWhiteList(dan,true,{from:admin})
-                app.mint("Whale", {from:dan})
-                console.log("Dan now whitelisted, can mint")
+        //         // Whitelist Dan and then let him try minting
+        //         await app.setWhiteList(dan,true,{from:admin})
+        //         app.mint("Whale", {from:dan})
+        //         console.log("Dan now whitelisted, can mint")
 
-                // Whitelisted Dan tries minting another NFT, reverts
-                await expect( app.mint("Dolphi", {from:dan}) ).to.be.revertedWith("!mintLimit");
-                console.log("Dan 2nd mint reverts")
-
-
-                // Un-whitelist Dan and Bob and let Dan try minting, expecting reversion
-                app.setWhiteList(dan,false,{from:admin})
-                app.setWhiteList(bob,false,{from:admin})
-                await expect( app.mint("BigWhale", {from:dan}) ).to.be.revertedWith("!whitelisted");
-                await expect( app.mint("BigWhale", {from:bob}) ).to.be.revertedWith("!whitelisted");
-
-                // Turn off whitelist
-                await app.setWhiteListStatus(false, await app.mintLimit(), {from:admin})
-
-                // Frank tries minting multiple NFTs
-                await app.mint("Clam", {from:frank})
-                await app.mint("Clam1", {from:frank})
-                await app.mint("Clam2", {from:frank})
-
-                console.log( "Alice Balance:",(await app.balanceOf(alice)).toString() )
-                console.log("Bob Balance:",(await app.balanceOf(bob)).toString() )
-                console.log("Carol Balance:",(await app.balanceOf(carol)).toString() )
-                console.log("Dan Balance:",(await app.balanceOf(dan)).toString() )
-                console.log("Frank Balance:",(await app.balanceOf(frank)).toString() )
+        //         // Whitelisted Dan tries minting another NFT, reverts
+        //         await expect( app.mint("Dolphi", {from:dan}) ).to.be.revertedWith("!mintLimit");
+        //         console.log("Dan 2nd mint reverts")
 
 
-            })
+        //         // Un-whitelist Dan and Bob and let Dan try minting, expecting reversion
+        //         app.setWhiteList(dan,false,{from:admin})
+        //         app.setWhiteList(bob,false,{from:admin})
+        //         await expect( app.mint("BigWhale", {from:dan}) ).to.be.revertedWith("!whitelisted");
+        //         await expect( app.mint("BigWhale", {from:bob}) ).to.be.revertedWith("!whitelisted");
 
-        }
+        //         // Turn off whitelist
+        //         await app.setWhiteListStatus(false, await app.mintLimit(), {from:admin})
+
+        //         // Frank tries minting multiple NFTs
+        //         await app.mint("Clam", {from:frank})
+        //         await app.mint("Clam1", {from:frank})
+        //         await app.mint("Clam2", {from:frank})
+
+        //         console.log( "Alice Balance:",(await app.balanceOf(alice)).toString() )
+        //         console.log("Bob Balance:",(await app.balanceOf(bob)).toString() )
+        //         console.log("Carol Balance:",(await app.balanceOf(carol)).toString() )
+        //         console.log("Dan Balance:",(await app.balanceOf(dan)).toString() )
+        //         console.log("Frank Balance:",(await app.balanceOf(frank)).toString() )
+
+
+        //     })
+
+        // }
 
     });
 });
