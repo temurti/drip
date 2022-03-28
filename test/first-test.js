@@ -5,6 +5,9 @@ const deployTestToken = require("@superfluid-finance/ethereum-contracts/scripts/
 const deploySuperToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-super-token");
 const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
+const { MerkleTree } = require("merkletreejs");
+const keccak256 = require("keccak256");
+
 const erc20Token = artifacts.require("ERC20");
 const TradeableFlow = artifacts.require("TradeableFlow.sol");
 
@@ -14,7 +17,7 @@ const ONE_DAY = 3600 * 24;
 const ONE_HOUR = 3600;
 const ONE_MINUTE = 60;
 const TO_GWEI = 10**18;
-
+let merkleTree;
 
 describe("TradeableFlow", function () {
 
@@ -94,6 +97,10 @@ describe("TradeableFlow", function () {
 
         }
 
+        const leafNodes = await accounts.map(addr => keccak256(addr));
+        merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
+        const rootHash = merkleTree.getRoot();
+
         for (var i = 0; i < tokens.length; i++) {
             // Mint 100000000 regulartokens for each user 
             // Approving reception of supertokens for each user
@@ -145,9 +152,11 @@ describe("TradeableFlow", function () {
             sf.host.address,
             sf.agreements.cfa.address,
             200000000000,                                         // Affiliate Portion (20%)
-            ""
+            "",
+            rootHash
         );
-
+        // console.log({user_directory});
+        await app.setWhiteListStatus(true, 1, {from:user_directory.admin})
         console.log("TradeableFlow Owner is:", alias_directory[ await app.owner() ] )
         
         // await app.setERC20MintRestriction(0,uwl.address, {from:user_directory.admin})   // ERC20Restrict token
@@ -380,7 +389,10 @@ describe("TradeableFlow", function () {
 
             console.log(`=== ${alias_directory[randomUser]} mints affiliate NFT with URI: ${randomNFTURI}`)
 
-            let tokenId = await app.mint(randomNFTURI, {from:randomUser})
+            const hexProof = merkleTree.getHexProof(keccak256(randomUser));
+            console.log({hexProof})
+
+            let tokenId = await app.mint(hexProof, randomNFTURI, {from:randomUser})
 
             console.log( "Token ID of Minted NFT:",parseInt(tokenId["logs"][0]["args"]["tokenId"].toString()) )
 

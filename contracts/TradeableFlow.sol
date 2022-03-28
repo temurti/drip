@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "./TradeableFlowStorage.sol";
 import "./AddrArrayLib.sol";
 
@@ -33,14 +34,16 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   address public ERC20MintRestrict;                                             // ERC20 token for which you must have enough balance to mint TradeableFlow NFT
   uint256 public ERC20MintRestrictBalanceRequirement;                           // Balance of ERC20 token required by wallet to mint TradeableFlow NFT - not set in constructor (so initially it's zero) but can be adjusted with setters
 
-  
+  // merkle tree root
+  bytes32 public immutable root;
+    
   struct AffiliateMintingStatus {                                               // Data on permission to mint (whitelisted) and amount minted so far (quantityMinted)
     bool whitelisted;
     uint256 quantityMinted;
   }
   mapping(address => AffiliateMintingStatus) public whitelist;                  // Addresses authorized to mint
   bool public whitelistActive;                                                  // Whether or not whitelist is active
-  uint256 public mintLimit;                                                     // Amount of NFTs a whitelisted address is allowed to mint
+  uint256 public mintLimit = 1;                                                 // Amount of NFTs a whitelisted address is allowed to mint
 
   string private baseURI;                                                       // Base URI pointing to Drip asset database
 
@@ -58,7 +61,8 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     ISuperfluid host,
     IConstantFlowAgreementV1 cfa,
     int96 _affiliatePortion,
-    string memory registrationKey
+    string memory registrationKey,
+     bytes32 _root
   )
     public ERC721 ( _name, _symbol )
     RedirectAll (
@@ -72,13 +76,15 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
     owner = _owner;
     drip = _drip;
     baseURI = _baseURI;
+    root = _root;
   }
 
-  modifier WhitelistRestriction() {
-    if (whitelistActive) {
-      require( whitelist[msg.sender].whitelisted == true, "!whitelisted" );
-      require( mintLimit > whitelist[msg.sender].quantityMinted, "!mintLimit" );
-    }
+  modifier WhitelistRestriction(bytes32[] calldata merkleProof) {
+    
+    require(whitelistActive, "mint not actived");
+    bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+    require(MerkleProof.verify(merkleProof, root, leaf), "Invalid Proof");
+    require( mintLimit > whitelist[msg.sender].quantityMinted, "!mintLimit" );
     whitelist[msg.sender].quantityMinted += 1;
     _;
   }
@@ -102,7 +108,7 @@ contract TradeableFlow is ERC721, ERC721Enumerable, ERC721URIStorage, RedirectAl
   @param referralCode URI, which also serves as referral code
   @return tokenId Token ID of minted affiliate NFT
   */
-  function mint(string memory referralCode) external ERC20Restriction WhitelistRestriction returns (uint256 tokenId) {
+  function mint(bytes32[] calldata merkleProof, string memory referralCode) external ERC20Restriction WhitelistRestriction(merkleProof) returns (uint256 tokenId) {
     require(!_ap.locked, "!locked");                                               // Affiliate program shouldn't be locked for minting to occur
     require(msg.sender != _ap.owner, "!own");                                     // Shouldn't be minting affiliate NFTs to contract deployer
     require(_ap.referralcodeToToken[referralCode] == 0, "!uri");                  // prevent minter from minting an NFT with the same affiliate code (tokenURI) as before to prevent affiliate flows from being stolen
